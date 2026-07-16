@@ -11,7 +11,15 @@ import { OperationalBoardPage } from './pages/OperationalBoardPage'
 import { TriagePage } from './pages/TriagePage'
 
 function AppRoutes() {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, loading } = useAuth()
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-auditart-gray">
+        Cargando…
+      </div>
+    )
+  }
 
   return (
     <Routes>

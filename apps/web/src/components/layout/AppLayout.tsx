@@ -7,7 +7,7 @@ import { getInitials } from '../../utils/format'
 import { Sidebar } from './Sidebar'
 
 export function AppLayout() {
-  const { user, switchUser, availableUsers, permissions } = useAuth()
+  const { user, switchDevUser, availableDevUsers, permissions } = useAuth()
   const { getStats } = useAudits()
   const stats = getStats()
 
@@ -22,7 +22,7 @@ export function AppLayout() {
             </h1>
             <p className="text-sm text-auditart-gray">
               {user ? ROLE_LABELS[user.role] : ''} ·{' '}
-              <span className="text-auditart-green font-medium">Sesión activa</span>
+              <span className="text-auditart-green font-medium">API conectada</span>
             </p>
           </div>
 
@@ -37,13 +37,13 @@ export function AppLayout() {
             {permissions.manageUsers && (
               <div className="relative">
                 <select
-                  value={user?.id}
-                  onChange={(e) => switchUser(e.target.value)}
+                  value={user?.email}
+                  onChange={(e) => void switchDevUser(e.target.value)}
                   className="input-modern appearance-none cursor-pointer py-2 pl-3 pr-8 text-xs font-medium text-auditart-navy"
-                  title="Cambiar usuario (solo admin)"
+                  title="Cambiar usuario Dev (solo admin)"
                 >
-                  {availableUsers.map((u) => (
-                    <option key={u.id} value={u.id}>
+                  {availableDevUsers.map((u) => (
+                    <option key={u.email} value={u.email}>
                       {u.name} — {ROLE_LABELS[u.role]}
                     </option>
                   ))}
@@ -60,7 +60,7 @@ export function AppLayout() {
                 {user ? getInitials(user.name) : ''}
               </div>
               <span className="hidden text-xs font-medium text-auditart-navy sm:inline">
-                POC · Fase 2
+                Live API
               </span>
             </div>
           </div>

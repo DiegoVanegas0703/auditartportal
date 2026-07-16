@@ -8,7 +8,15 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, requiredPermission }: ProtectedRouteProps) {
-  const { isAuthenticated, permissions } = useAuth()
+  const { isAuthenticated, permissions, loading } = useAuth()
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-auditart-gray">
+        Cargando sesión…
+      </div>
+    )
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />

@@ -7,67 +7,104 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { DEFAULT_USER, getPermissions, MOCK_USERS } from '../data/mockUsers'
+import {
+  authApi,
+  DEV_LOGIN_USERS,
+  mapAuthUser,
+  type AuthUserDto,
+} from '../api/auditartApi'
+import { clearTokens, getAccessToken, getRefreshToken } from '../api/client'
 import type { Permission, User } from '../types'
 
+type AuthUser = User & { permissions: Permission }
+
 interface AuthContextValue {
-  user: User | null
+  user: AuthUser | null
   permissions: Permission
   isAuthenticated: boolean
-  login: (userId: string) => void
-  logout: () => void
-  switchUser: (userId: string) => void
-  availableUsers: User[]
+  loading: boolean
+  error: string | null
+  loginDev: (email: string) => Promise<void>
+  logout: () => Promise<void>
+  switchDevUser: (email: string) => Promise<void>
+  availableDevUsers: typeof DEV_LOGIN_USERS
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-const SESSION_KEY = 'auditart_session'
+const emptyPermissions: Permission = {
+  triage: false,
+  operationalBoard: false,
+  billing: false,
+  allQueues: false,
+  manageUsers: false,
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<AuthUser | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const applyAuthUser = useCallback((dto: AuthUserDto) => {
+    setUser(mapAuthUser(dto))
+  }, [])
 
   useEffect(() => {
-    const stored = sessionStorage.getItem(SESSION_KEY)
-    if (stored) {
-      const found = MOCK_USERS.find((u) => u.id === stored)
-      setUser(found ?? DEFAULT_USER)
+    const boot = async () => {
+      const token = getAccessToken()
+      if (!token) {
+        setLoading(false)
+        return
+      }
+      try {
+        const me = await authApi.me()
+        applyAuthUser(me)
+      } catch {
+        clearTokens()
+        setUser(null)
+      } finally {
+        setLoading(false)
+      }
     }
-  }, [])
+    void boot()
+  }, [applyAuthUser])
 
-  const login = useCallback((userId: string) => {
-    const found = MOCK_USERS.find((u) => u.id === userId) ?? DEFAULT_USER
-    setUser(found)
-    sessionStorage.setItem(SESSION_KEY, found.id)
-  }, [])
-
-  const logout = useCallback(() => {
-    setUser(null)
-    sessionStorage.removeItem(SESSION_KEY)
-  }, [])
-
-  const switchUser = useCallback((userId: string) => {
-    const found = MOCK_USERS.find((u) => u.id === userId) ?? DEFAULT_USER
-    setUser(found)
-    sessionStorage.setItem(SESSION_KEY, found.id)
-  }, [])
-
-  const permissions = useMemo(
-    () => (user ? getPermissions(user.role) : getPermissions('operador')),
-    [user],
+  const loginDev = useCallback(
+    async (email: string) => {
+      setError(null)
+      const tokens = await authApi.loginDev(email)
+      applyAuthUser(tokens.user)
+    },
+    [applyAuthUser],
   )
+
+  const logout = useCallback(async () => {
+    await authApi.logout(getRefreshToken())
+    setUser(null)
+  }, [])
+
+  const switchDevUser = useCallback(
+    async (email: string) => {
+      await loginDev(email)
+    },
+    [loginDev],
+  )
+
+  const permissions = user?.permissions ?? emptyPermissions
 
   const value = useMemo(
     () => ({
       user,
       permissions,
       isAuthenticated: !!user,
-      login,
+      loading,
+      error,
+      loginDev,
       logout,
-      switchUser,
-      availableUsers: MOCK_USERS,
+      switchDevUser,
+      availableDevUsers: DEV_LOGIN_USERS,
     }),
-    [user, permissions, login, logout, switchUser],
+    [user, permissions, loading, error, loginDev, logout, switchDevUser],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

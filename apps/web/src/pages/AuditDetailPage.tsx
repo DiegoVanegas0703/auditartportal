@@ -61,30 +61,43 @@ export function AuditDetailPage() {
     setTimeout(() => setToast(''), 3000)
   }
 
-  const handleTransition = (next: AuditStatus) => {
-    const updates: Partial<typeof audit> = { status: next }
-    if (next === 'amarillo' && !audit.fechaTurno) {
-      updates.fechaTurno = new Date(Date.now() + 86400000).toISOString()
-      updates.profesional = audit.profesional ?? 'Dr. Asignado'
-      updates.autorizacionART = true
+  const handleTransition = async (next: AuditStatus) => {
+    try {
+      if (next === 'verde') {
+        await updateAudit(audit.id, {
+          autorizacionART: true,
+          autofisica: true,
+          valorPactado: audit.valorPactado ?? 45000,
+        })
+      }
+
+      const extras =
+        next === 'amarillo'
+          ? {
+              fechaTurnoUtc: new Date(Date.now() + 86400000).toISOString(),
+              profesional: audit.profesional ?? 'Dr. Asignado',
+            }
+          : undefined
+
+      await updateAuditStatus(audit.id, next, extras)
+
+      if (next === 'amarillo') {
+        await updateAudit(audit.id, { autorizacionART: true })
+      }
+
+      showToast(`Estado actualizado a ${STATUS_LABELS[next]}`)
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Error al cambiar estado')
     }
-    if (next === 'azul') {
-      updates.fechaConsulta = new Date().toISOString()
-      updates.slaDeadline = new Date(Date.now() + 48 * 3600000).toISOString()
-      updates.slaHoursRemaining = 48
-    }
-    if (next === 'verde') {
-      updates.autofisica = true
-      updates.slaHoursRemaining = undefined
-    }
-    updateAudit(audit.id, updates)
-    updateAuditStatus(audit.id, next)
-    showToast(`Estado actualizado a ${STATUS_LABELS[next]} · WhatsApp simulado`)
   }
 
-  const toggleFlag = (field: 'presupuestoEnviado' | 'autorizacionART' | 'autofisica') => {
-    updateAudit(audit.id, { [field]: !audit[field] })
-    showToast('Documentación actualizada')
+  const toggleFlag = async (field: 'presupuestoEnviado' | 'autorizacionART' | 'autofisica') => {
+    try {
+      await updateAudit(audit.id, { [field]: !audit[field] })
+      showToast('Documentación actualizada')
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Error al actualizar')
+    }
   }
 
   return (
@@ -177,17 +190,17 @@ export function AuditDetailPage() {
             <CheckButton
               active={audit.presupuestoEnviado}
               label="Presupuesto enviado a ART"
-              onClick={() => toggleFlag('presupuestoEnviado')}
+              onClick={() => void toggleFlag('presupuestoEnviado')}
             />
             <CheckButton
               active={audit.autorizacionART}
               label="Autorización ART"
-              onClick={() => toggleFlag('autorizacionART')}
+              onClick={() => void toggleFlag('autorizacionART')}
             />
             <CheckButton
               active={audit.autofisica}
               label="Autofísica cargada"
-              onClick={() => toggleFlag('autofisica')}
+              onClick={() => void toggleFlag('autofisica')}
             />
           </div>
         </div>
@@ -213,7 +226,7 @@ export function AuditDetailPage() {
               {transitions.map((t) => (
                 <button
                   key={t.next}
-                  onClick={() => handleTransition(t.next)}
+                  onClick={() => void handleTransition(t.next)}
                   className="group flex w-full items-center justify-between rounded-2xl border-2 border-gray-100 bg-white p-5 text-left transition-all hover:border-auditart-blue hover:shadow-md hover:shadow-auditart-blue/8"
                 >
                   <div>

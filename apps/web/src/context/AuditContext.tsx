@@ -2,13 +2,18 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react'
-import { MOCK_AUDITS } from '../data/mockAudits'
-import { MOCK_EMAILS } from '../data/mockEmails'
-import { MOCK_USERS } from '../data/mockUsers'
+import {
+  mapEmail,
+  mapService,
+  servicesApi,
+  triageApi,
+} from '../api/auditartApi'
+import { useAuth } from './AuthContext'
 import type {
   AuditQueue,
   AuditRecord,
@@ -20,9 +25,24 @@ import type {
 interface AuditContextValue {
   audits: AuditRecord[]
   emails: IncomingEmail[]
-  assignEmailToQueue: (emailId: string, queue: AuditQueue) => void
-  updateAuditStatus: (auditId: string, status: AuditStatus) => void
-  updateAudit: (auditId: string, updates: Partial<AuditRecord>) => void
+  loading: boolean
+  error: string | null
+  refresh: () => Promise<void>
+  seedDemoEmails: () => Promise<void>
+  assignEmailToQueue: (
+    emailId: string,
+    queue: AuditQueue,
+    operadorId: string,
+  ) => Promise<void>
+  updateAuditStatus: (
+    auditId: string,
+    status: AuditStatus,
+    extras?: { fechaTurnoUtc?: string; profesional?: string },
+  ) => Promise<void>
+  updateAudit: (
+    auditId: string,
+    updates: Partial<AuditRecord>,
+  ) => Promise<void>
   getStats: () => {
     rojo: number
     amarillo: number
@@ -35,66 +55,81 @@ interface AuditContextValue {
 
 const AuditContext = createContext<AuditContextValue | null>(null)
 
-function getNextNumero(audits: AuditRecord[]): number {
-  return Math.max(...audits.map((a) => a.numero), 1000) + 1
-}
-
-function getOperadorForQueue(queue: AuditQueue) {
-  switch (queue) {
-    case 'telemedicina':
-      return MOCK_USERS.find((u) => u.id === 'u6')!
-    case 'cronicos':
-      return MOCK_USERS.find((u) => u.id === 'u7')!
-    default:
-      return MOCK_USERS.find((u) => u.id === 'u3')!
-  }
-}
-
 export function AuditProvider({ children }: { children: ReactNode }) {
-  const [audits, setAudits] = useState<AuditRecord[]>(MOCK_AUDITS)
-  const [emails, setEmails] = useState<IncomingEmail[]>(MOCK_EMAILS)
+  const { isAuthenticated, permissions } = useAuth()
+  const [audits, setAudits] = useState<AuditRecord[]>([])
+  const [emails, setEmails] = useState<IncomingEmail[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const assignEmailToQueue = useCallback((emailId: string, queue: AuditQueue) => {
-    setEmails((prev) =>
-      prev.map((e) => (e.id === emailId ? { ...e, assigned: true, suggestedQueue: queue } : e)),
-    )
+  const refresh = useCallback(async () => {
+    if (!isAuthenticated) {
+      setAudits([])
+      setEmails([])
+      return
+    }
 
-    setAudits((prev) => {
-      const email = MOCK_EMAILS.find((e) => e.id === emailId)
-      if (!email) return prev
+    setLoading(true)
+    setError(null)
+    try {
+      const services = await servicesApi.list()
+      setAudits(services.map(mapService))
 
-      const operador = getOperadorForQueue(queue)
-      const newAudit: AuditRecord = {
-        id: `a-new-${Date.now()}`,
-        numero: getNextNumero(prev),
-        paciente: email.patientName ?? 'Sin identificar',
-        dni: '—',
-        art: email.art,
-        tipoServicio: email.serviceType,
-        especialidad: 'Por definir',
-        operador: operador.name,
-        operadorId: operador.id,
-        queue,
-        status: 'rojo',
-        urgency: email.subject.toLowerCase().includes('urgent') ? 'critica' : 'alta',
-        fechaIngreso: new Date().toISOString(),
-        presupuestoEnviado: false,
-        autorizacionART: false,
-        autofisica: false,
-        notas: `Derivado desde email: ${email.subject}`,
-        emailOrigen: email.from,
+      if (permissions.triage) {
+        const list = await triageApi.listEmails()
+        setEmails(list.map(mapEmail))
+      } else {
+        setEmails([])
       }
-      return [newAudit, ...prev]
-    })
-  }, [])
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error al cargar datos')
+    } finally {
+      setLoading(false)
+    }
+  }, [isAuthenticated, permissions.triage])
 
-  const updateAuditStatus = useCallback((auditId: string, status: AuditStatus) => {
-    setAudits((prev) => prev.map((a) => (a.id === auditId ? { ...a, status } : a)))
-  }, [])
+  useEffect(() => {
+    void refresh()
+  }, [refresh])
 
-  const updateAudit = useCallback((auditId: string, updates: Partial<AuditRecord>) => {
-    setAudits((prev) => prev.map((a) => (a.id === auditId ? { ...a, ...updates } : a)))
-  }, [])
+  const seedDemoEmails = useCallback(async () => {
+    await triageApi.seedDemoEmails()
+    await refresh()
+  }, [refresh])
+
+  const assignEmailToQueue = useCallback(
+    async (emailId: string, queue: AuditQueue, operadorId: string) => {
+      await triageApi.assign(emailId, queue, operadorId)
+      await refresh()
+    },
+    [refresh],
+  )
+
+  const updateAuditStatus = useCallback(
+    async (
+      auditId: string,
+      status: AuditStatus,
+      extras?: { fechaTurnoUtc?: string; profesional?: string },
+    ) => {
+      await servicesApi.transition(auditId, status, extras)
+      await refresh()
+    },
+    [refresh],
+  )
+
+  const updateAudit = useCallback(
+    async (auditId: string, updates: Partial<AuditRecord>) => {
+      await servicesApi.updateFlags(auditId, {
+        presupuestoEnviado: updates.presupuestoEnviado,
+        autorizacionArt: updates.autorizacionART,
+        autofisica: updates.autofisica,
+        valorPactado: updates.valorPactado,
+        notas: updates.notas,
+      })
+      await refresh()
+    },
+    [refresh],
+  )
 
   const getStats = useCallback(() => {
     const rojo = audits.filter((a) => a.status === 'rojo').length
@@ -112,12 +147,27 @@ export function AuditProvider({ children }: { children: ReactNode }) {
     () => ({
       audits,
       emails,
+      loading,
+      error,
+      refresh,
+      seedDemoEmails,
       assignEmailToQueue,
       updateAuditStatus,
       updateAudit,
       getStats,
     }),
-    [audits, emails, assignEmailToQueue, updateAuditStatus, updateAudit, getStats],
+    [
+      audits,
+      emails,
+      loading,
+      error,
+      refresh,
+      seedDemoEmails,
+      assignEmailToQueue,
+      updateAuditStatus,
+      updateAudit,
+      getStats,
+    ],
   )
 
   return <AuditContext.Provider value={value}>{children}</AuditContext.Provider>
@@ -131,17 +181,11 @@ export function useAudits() {
 
 export function filterAuditsForUser(
   audits: AuditRecord[],
-  userId: string,
-  role: string,
+  _userId: string,
+  _role: string,
   _queue?: AuditQueue,
 ): AuditRecord[] {
-  if (role === 'admin' || role === 'jefatura') return audits
-  if (role === 'facturacion') return audits.filter((a) => a.status === 'verde')
-  if (role === 'telemedicina') return audits.filter((a) => a.queue === 'telemedicina')
-  if (role === 'cronicos') return audits.filter((a) => a.queue === 'cronicos')
-  if (role === 'operador') {
-    return audits.filter((a) => a.queue === 'general' && a.operadorId === userId)
-  }
+  // El filtrado por rol ya lo hace el backend.
   return audits
 }
 

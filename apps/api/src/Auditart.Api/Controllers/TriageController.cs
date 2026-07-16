@@ -2,7 +2,6 @@ using System.Security.Claims;
 using Auditart.Application.Abstractions;
 using Auditart.Domain.Entities;
 using Auditart.Domain.Enums;
-using Auditart.Domain.Exceptions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -46,9 +45,69 @@ public class TriageController : ControllerBase
         return Ok(items);
     }
 
-    /// <summary>
-    /// La jefa elige cola y operador. Siempre crea servicio en estado Rojo.
-    /// </summary>
+    [HttpPost("seed-demo-emails")]
+    public async Task<IActionResult> SeedDemoEmails(CancellationToken ct)
+    {
+        if (!IsJefaturaOrAdmin()) return Forbid();
+
+        if (await _db.IncomingEmails.AnyAsync(e => !e.IsAssigned, ct))
+            return Ok(new { message = "Ya hay emails pendientes.", created = 0 });
+
+        var demos = new[]
+        {
+            IncomingEmail.Create(
+                $"demo-{Guid.NewGuid():N}",
+                "art.lacaja@ejemplo.com",
+                "Solicitud auditoría consultorio - Siniestro 45231",
+                "Estimados, solicitamos auditoría de consultorio para Juan Pérez, DNI 28.456.789.",
+                DateTime.UtcNow.AddHours(-4),
+                2,
+                AuditQueue.General,
+                ServiceType.Consultorio,
+                "La Caja ART",
+                "Juan Pérez"),
+            IncomingEmail.Create(
+                $"demo-{Guid.NewGuid():N}",
+                "gestion@provart.com.ar",
+                "Telemedicina - Control post operatorio",
+                "Requerimos teleconsulta para María López, DNI 31.234.567.",
+                DateTime.UtcNow.AddHours(-3),
+                1,
+                AuditQueue.Telemedicina,
+                ServiceType.Telemedicina,
+                "Provincia ART",
+                "María López"),
+            IncomingEmail.Create(
+                $"demo-{Guid.NewGuid():N}",
+                "cronicos@galiciaseguros.com",
+                "Paciente crónico - Reevaluación trimestral",
+                "Solicitamos reevaluación de Roberto Sánchez, DNI 15.678.901.",
+                DateTime.UtcNow.AddHours(-2),
+                3,
+                AuditQueue.Cronicos,
+                ServiceType.Consultorio,
+                "Galicia Seguros",
+                "Roberto Sánchez"),
+            IncomingEmail.Create(
+                $"demo-{Guid.NewGuid():N}",
+                "auditoria@experta.com.ar",
+                "URGENTE - Auditoría en domicilio",
+                "Solicitud urgente de auditoría en domicilio para Carlos Mendoza.",
+                DateTime.UtcNow.AddHours(-1),
+                1,
+                AuditQueue.General,
+                ServiceType.Domicilio,
+                "Experta ART",
+                "Carlos Mendoza"),
+        };
+
+        foreach (var email in demos)
+            _db.Add(email);
+
+        await _db.SaveChangesAsync(ct);
+        return Ok(new { message = "Emails de demo creados.", created = demos.Length });
+    }
+
     [HttpPost("emails/{emailId:guid}/assign")]
     public async Task<ActionResult<AuditServiceDto>> Assign(
         Guid emailId,
