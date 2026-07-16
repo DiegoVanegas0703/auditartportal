@@ -1,0 +1,51 @@
+# Dependencies 
+node_modules/ 
+**/node_modules/ 
+ 
+# Build outputs 
+dist/ 
+build/ 
+out/ 
+**/bin/ 
+**/obj/ 
+*.dll 
+*.exe 
+*.pdb 
+ 
+# .NET 
+*.user 
+*.suo 
+.vs/ 
+*.nupkg 
+project.lock.json 
+ 
+# Env / secrets 
+.env 
+.env.* 
+!.env.example 
+appsettings.Development.json 
+**/secrets.json 
+*.pfx 
+ 
+# IDE / OS 
+.idea/ 
+.vscode/* 
+!.vscode/extensions.json 
+!.vscode/settings.json 
+.DS_Store 
+Thumbs.db 
+Desktop.ini 
+ 
+# Logs / coverage / caches 
+*.log 
+npm-debug.log* 
+coverage/ 
+.nyc_output/ 
+.cache/ 
+*.tsbuildinfo 
+ 
+# Vite 
+apps/web/dist/ 
+ 
+# Test 
+TestResults/ 
