@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: auditart-postgres
+    environment:
+      POSTGRES_DB: auditart
+      POSTGRES_USER: auditart
+      POSTGRES_PASSWORD: auditart_dev
+    ports:
+      - "5433:5432"
+    volumes:
+      - auditart_pgdata:/var/lib/postgresql/data
+
+volumes:
+  auditart_pgdata:

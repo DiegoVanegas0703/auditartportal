@@ -23,8 +23,7 @@ project.lock.json
 .env 
 .env.* 
 !.env.example 
-appsettings.Development.json 
-**/secrets.json 
+**/secrets.json
 *.pfx 
  
 # IDE / OS 
