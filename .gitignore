@@ -23,6 +23,7 @@ project.lock.json
 .env 
 .env.* 
 !.env.example 
+!deploy/.env.prod.example
 **/secrets.json
 *.pfx 
  
