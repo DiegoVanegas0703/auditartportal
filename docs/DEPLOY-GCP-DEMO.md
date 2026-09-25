@@ -173,19 +173,26 @@ Permisos:
 chmod 600 .env
 ```
 
-### 4.4 Ajustar Compose para demo “todo en una VM”
+### 4.4 Compose “todo en una VM”
 
-En `docker-compose.prod.yml` **descomentá** el servicio `db` y hacé que `api` dependa de él (está documentado en el propio archivo).  
-Si el front necesita proxy a la API, el Dockerfile de `apps/web` ya suele enrutar `/api` vía nginx — verificá al build.
+`docker-compose.prod.yml` ya incluye el servicio **`db`** (Postgres).  
+En el `.env` usá:
+
+```bash
+ConnectionStrings__Default=Host=db;Port=5432;Database=auditart;Username=auditart;Password=LA_MISMA_QUE_POSTGRES
+POSTGRES_PASSWORD=LA_MISMA_QUE_POSTGRES
+```
 
 Levantar:
 
 ```bash
 docker compose -f docker-compose.prod.yml --env-file .env up -d --build
 docker compose -f docker-compose.prod.yml ps
-curl -s http://127.0.0.1:8080/health   # o el puerto que exponga el proxy
+# Health vía nginx (el puerto 8080 de la API no se publica al host):
+curl -s http://127.0.0.1/health
 ```
 
+Si el API reinicia: `docker compose -f docker-compose.prod.yml logs api --tail=80`
 ### 4.5 HTTPS (recomendado para demo)
 
 Opción fácil: **Cloudflare** delante (proxy naranja) + origen HTTP en la VM, o instalar **Caddy** en la VM como reverse proxy con Let’s Encrypt.
