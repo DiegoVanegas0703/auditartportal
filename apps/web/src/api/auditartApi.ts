@@ -241,10 +241,11 @@ export function mapService(s: ApiService) {
     tipoProfesional: s.tipoProfesional
       ? (String(s.tipoProfesional).toLowerCase() as 'auditor' | 'especialista')
       : undefined,
-    porcentajeConciliacionEspecialista:
-      s.porcentajeConciliacionEspecialista === 50 || s.porcentajeConciliacionEspecialista === 100
-        ? s.porcentajeConciliacionEspecialista
-        : undefined,
+    porcentajeConciliacionEspecialista: ((): 50 | 100 | undefined => {
+      if (s.porcentajeConciliacionEspecialista === 50) return 50
+      if (s.porcentajeConciliacionEspecialista === 100) return 100
+      return undefined
+    })(),
     precioCatalogoId: s.precioCatalogoId ?? undefined,
     requierePagoAnticipado: s.requierePagoAnticipado ?? false,
     presupuestoEnviado: s.presupuestoEnviado,

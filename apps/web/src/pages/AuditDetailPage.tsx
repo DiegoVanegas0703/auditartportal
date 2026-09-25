@@ -81,7 +81,7 @@ const TRANSITIONS: Record<
 export function AuditDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { permissions } = useAuth()
-  const { audits, updateAudit, updateAuditStatus, refresh } = useAudits()
+  const { audits, updateAuditStatus, refresh } = useAudits()
   const [toast, setToast] = useState('')
   const [correspondence, setCorrespondence] = useState<EmailRequestDetail | null>(null)
   const [corrLoading, setCorrLoading] = useState(false)

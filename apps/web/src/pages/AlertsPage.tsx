@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { alertsApi, type InAppAlertDto } from '../api/auditartApi'
 import { PageHeader } from '../components/ui/PageHeader'
-import { QUEUE_LABELS, STATUS_LABELS, type AuditStatus } from '../types'
+import { QUEUE_LABELS, STATUS_LABELS, type AuditQueue, type AuditStatus } from '../types'
 import { formatDateTime } from '../utils/format'
 
 export function AlertsPage() {
@@ -127,7 +127,7 @@ export function AlertsPage() {
                       : 'Vencido'}
                   </span>
                   <span className="text-xs text-auditart-muted">
-                    {QUEUE_LABELS[alert.queue] ?? alert.queue} ·{' '}
+                    {QUEUE_LABELS[alert.queue as AuditQueue] ?? alert.queue} ·{' '}
                     {STATUS_LABELS[alert.serviceStatus as AuditStatus] ?? alert.serviceStatus}
                   </span>
                 </div>
