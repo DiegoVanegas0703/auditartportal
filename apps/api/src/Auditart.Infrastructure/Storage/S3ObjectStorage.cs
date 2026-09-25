@@ -9,21 +9,31 @@ namespace Auditart.Infrastructure.Storage;
 
 public class S3ObjectStorage : IObjectStorage
 {
-    private readonly IAmazonS3 _s3;
+    private readonly IConfiguration _configuration;
     private readonly string _bucket;
     private readonly bool _useLocalFallback;
     private readonly string _localRoot;
+    private IAmazonS3? _s3;
 
     public S3ObjectStorage(IConfiguration configuration, IHostEnvironment env)
     {
+        _configuration = configuration;
         _bucket = configuration["Aws:S3:Bucket"] ?? "auditart-docs-dev";
-        var region = configuration["Aws:Region"] ?? "us-east-1";
-        _useLocalFallback = env.IsDevelopment() &&
-            string.Equals(configuration["Aws:S3:UseLocal"], "true", StringComparison.OrdinalIgnoreCase);
+        // Demo/GCP: UseLocal=true debe funcionar también en Production (no solo Development).
+        _useLocalFallback = string.Equals(
+            configuration["Aws:S3:UseLocal"],
+            "true",
+            StringComparison.OrdinalIgnoreCase);
 
-        _localRoot = Path.Combine(env.ContentRootPath, "App_Data", "uploads");
-        _s3 = new AmazonS3Client(RegionEndpoint.GetBySystemName(region));
+        var configuredRoot = configuration["Aws:S3:LocalRoot"];
+        _localRoot = string.IsNullOrWhiteSpace(configuredRoot)
+            ? Path.Combine(env.ContentRootPath, "App_Data", "uploads")
+            : configuredRoot;
     }
+
+    private IAmazonS3 S3 =>
+        _s3 ??= new AmazonS3Client(
+            RegionEndpoint.GetBySystemName(_configuration["Aws:Region"] ?? "us-east-1"));
 
     public async Task<string> UploadAsync(
         Stream content,
@@ -51,7 +61,7 @@ public class S3ObjectStorage : IObjectStorage
             InputStream = content,
             ContentType = contentType
         };
-        await _s3.PutObjectAsync(request, cancellationToken);
+        await S3.PutObjectAsync(request, cancellationToken);
         return key;
     }
 
@@ -74,7 +84,7 @@ public class S3ObjectStorage : IObjectStorage
             return new ObjectDownload(File.OpenRead(fullPath), null);
         }
 
-        var response = await _s3.GetObjectAsync(
+        var response = await S3.GetObjectAsync(
             new GetObjectRequest
             {
                 BucketName = _bucket,

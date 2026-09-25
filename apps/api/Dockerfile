@@ -19,5 +19,6 @@ ENV ASPNETCORE_URLS=http://+:8080
 ENV ASPNETCORE_ENVIRONMENT=Production
 EXPOSE 8080
 COPY --from=build /app/publish .
+RUN mkdir -p /app/App_Data/uploads && chown -R app:app /app/App_Data
 USER app
 ENTRYPOINT ["dotnet", "Auditart.Api.dll"]

@@ -62,9 +62,21 @@ public sealed class GmailChannelRegistry : IGmailChannelRegistry
     {
         var root = _configuration.GetSection(GmailOptions.SectionName);
         var section = root.GetSection(channel.ToString());
-        var mailbox = section["Mailbox"] ?? (channel == EmailChannel.General
-            ? root["Mailbox"] ?? "dvelopmentcode@gmail.com"
-            : $"cronicos@auditart.local");
+        var mailbox = section["Mailbox"];
+        // Gmail__Mailbox (root) manda en canal General — evita que appsettings General:Mailbox pise el .env
+        if (channel == EmailChannel.General)
+        {
+            var rootMailbox = root["Mailbox"];
+            if (!string.IsNullOrWhiteSpace(rootMailbox))
+                mailbox = rootMailbox;
+        }
+
+        if (string.IsNullOrWhiteSpace(mailbox))
+        {
+            mailbox = channel == EmailChannel.General
+                ? "info@auditart.com.ar"
+                : "cronicos@auditart.local";
+        }
 
         var refreshToken = section["RefreshToken"] ?? root["RefreshToken"];
         var sectionEnabled = section.GetValue<bool?>("Enabled");

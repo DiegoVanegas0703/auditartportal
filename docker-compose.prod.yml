@@ -34,8 +34,11 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
+      Aws__S3__UseLocal: "true"
     expose:
       - "8080"
+    volumes:
+      - api_uploads:/app/App_Data/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -54,3 +57,4 @@ services:
 
 volumes:
   auditart_pgdata:
+  api_uploads:
