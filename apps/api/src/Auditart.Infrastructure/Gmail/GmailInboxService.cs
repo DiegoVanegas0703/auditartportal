@@ -94,10 +94,20 @@ public sealed class GmailInboxService : IGmailInboxService, IDisposable
         string messageId,
         CancellationToken cancellationToken = default)
     {
-        var getRequest = _gmail.Users.Messages.Get("me", messageId);
-        getRequest.Format = UsersResource.MessagesResource.GetRequest.FormatEnum.Full;
-        var message = await getRequest.ExecuteAsync(cancellationToken);
-        return await MapMessageAsync(message, cancellationToken);
+        try
+        {
+            var getRequest = _gmail.Users.Messages.Get("me", messageId);
+            getRequest.Format = UsersResource.MessagesResource.GetRequest.FormatEnum.Full;
+            var message = await getRequest.ExecuteAsync(cancellationToken);
+            return await MapMessageAsync(message, cancellationToken);
+        }
+        catch (Google.GoogleApiException ex) when (
+            ex.HttpStatusCode == HttpStatusCode.NotFound ||
+            ex.Error?.Code == 404)
+        {
+            // Mensaje borrado / history stale: el caller lo trata como skip.
+            return null;
+        }
     }
 
     public async Task<string?> GetProfileHistoryIdAsync(CancellationToken cancellationToken = default)
@@ -164,11 +174,20 @@ public sealed class GmailInboxService : IGmailInboxService, IDisposable
         string messageId,
         CancellationToken cancellationToken = default)
     {
-        var request = _gmail.Users.Messages.Modify(
-            new ModifyMessageRequest { RemoveLabelIds = ["UNREAD"] },
-            "me",
-            messageId);
-        await request.ExecuteAsync(cancellationToken);
+        try
+        {
+            var request = _gmail.Users.Messages.Modify(
+                new ModifyMessageRequest { RemoveLabelIds = ["UNREAD"] },
+                "me",
+                messageId);
+            await request.ExecuteAsync(cancellationToken);
+        }
+        catch (Google.GoogleApiException ex) when (
+            ex.HttpStatusCode == HttpStatusCode.NotFound ||
+            ex.Error?.Code == 404)
+        {
+            // Ya no existe en Gmail; nada que marcar.
+        }
     }
 
     public async Task ModifyThreadLabelsByNameAsync(
