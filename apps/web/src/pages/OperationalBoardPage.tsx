@@ -1,10 +1,12 @@
 import { AlertTriangle, ExternalLink, MessageCircle, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { PrestadorDetailModal } from '../components/prestadores/PrestadorDetailModal'
 import { PageHeader } from '../components/ui/PageHeader'
 import { StatusBadge } from '../components/ui/StatusBadge'
-import { useAuth } from '../context/AuthContext'
-import { filterAuditsForUser, getUrgencyColor, useAudits } from '../context/AuditContext'
+import { useAuth } from '../context/useAuth'
+import { filterAuditsForUser, getUrgencyColor } from '../utils/auditHelpers'
+import { useAudits } from '../context/useAudits'
 import {
   QUEUE_LABELS,
   SERVICE_LABELS,
@@ -13,11 +15,12 @@ import {
 import { formatDateTime, formatCurrency } from '../utils/format'
 
 const STATUS_FILTERS: { key: AuditStatus | 'todos'; label: string; dot?: string }[] = [
-  { key: 'todos', label: 'Todos' },
+  { key: 'todos', label: 'Abiertas' },
   { key: 'rojo', label: 'Rojo', dot: 'bg-red-500' },
   { key: 'amarillo', label: 'Amarillo', dot: 'bg-yellow-500' },
   { key: 'azul', label: 'Azul', dot: 'bg-blue-500' },
   { key: 'verde', label: 'Verde', dot: 'bg-green-500' },
+  { key: 'celeste', label: 'Celeste', dot: 'bg-sky-400' },
 ]
 
 const rowStatusClass: Record<AuditStatus, string> = {
@@ -25,6 +28,7 @@ const rowStatusClass: Record<AuditStatus, string> = {
   amarillo: 'row-status-amarillo',
   azul: 'row-status-azul',
   verde: 'row-status-verde',
+  celeste: 'row-status-celeste',
 }
 
 export function OperationalBoardPage() {
@@ -32,11 +36,13 @@ export function OperationalBoardPage() {
   const { audits } = useAudits()
   const [statusFilter, setStatusFilter] = useState<AuditStatus | 'todos'>('todos')
   const [search, setSearch] = useState('')
+  const [detailPrestadorId, setDetailPrestadorId] = useState<string | null>(null)
 
   const filtered = useMemo(() => {
     if (!user) return []
     let list = filterAuditsForUser(audits, user.id, user.role, user.queue)
-    if (statusFilter !== 'todos') list = list.filter((a) => a.status === statusFilter)
+    if (statusFilter === 'todos') list = list.filter((a) => a.status !== 'celeste')
+    else list = list.filter((a) => a.status === statusFilter)
     if (search) {
       const q = search.toLowerCase()
       list = list.filter(
@@ -49,6 +55,24 @@ export function OperationalBoardPage() {
     }
     return list
   }, [audits, user, statusFilter, search])
+
+  const groups = useMemo(() => {
+    const map = new Map<string, typeof filtered>()
+    for (const item of filtered) {
+      const key = item.pacienteId ?? `orphan:${item.dni}:${item.paciente}`
+      const current = map.get(key) ?? []
+      current.push(item)
+      map.set(key, current)
+    }
+    return [...map.entries()].map(([key, items]) => ({
+      key,
+      pacienteId: items[0]?.pacienteId,
+      paciente: items[0]?.paciente ?? 'Paciente',
+      dni: items[0]?.dni ?? '—',
+      art: items[0]?.art ?? '—',
+      items,
+    }))
+  }, [filtered])
 
   return (
     <div className="animate-fade-in">
@@ -118,20 +142,52 @@ export function OperationalBoardPage() {
                 <th className="px-5 py-4">Turno</th>
                 <th className="px-5 py-4">Valor</th>
                 <th className="px-5 py-4">Estado</th>
+                <th className="px-5 py-4">Renovación</th>
                 <th className="px-5 py-4">SLA</th>
                 <th className="px-5 py-4"></th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((audit, i) => {
+              {groups.flatMap((group) => [
+                <tr key={`g-${group.key}`} className="bg-auditart-light/70">
+                  <td colSpan={12} className="px-5 py-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        {group.pacienteId ? (
+                          <Link
+                            to={`/pacientes/${group.pacienteId}`}
+                            className="font-bold text-auditart-navy hover:text-auditart-blue hover:underline"
+                          >
+                            {group.paciente}
+                          </Link>
+                        ) : (
+                          <span className="font-bold text-auditart-navy">{group.paciente}</span>
+                        )}
+                        <span className="ml-2 text-xs text-auditart-muted">
+                          DNI {group.dni} · {group.art} · {group.items.length} prestación(es)
+                        </span>
+                      </div>
+                      {group.pacienteId && (
+                        <Link
+                          to={`/pacientes/${group.pacienteId}`}
+                          className="text-xs font-semibold text-auditart-blue hover:underline"
+                        >
+                          Ver paciente / nueva prestación
+                        </Link>
+                      )}
+                    </div>
+                  </td>
+                </tr>,
+                ...group.items.map((audit) => {
+                const warnHours = audit.slaWarnBeforeHours ?? 12
                 const slaWarning =
-                  audit.status === 'azul' && (audit.slaHoursRemaining ?? 99) <= 12
+                  audit.slaHoursRemaining != null && audit.slaHoursRemaining <= warnHours
+                const slaExpired =
+                  audit.slaHoursRemaining != null && audit.slaHoursRemaining <= 0
                 return (
                   <tr
                     key={audit.id}
-                    className={`${rowStatusClass[audit.status]} border-b border-gray-50 transition-colors hover:bg-auditart-blue/3 ${
-                      i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'
-                    }`}
+                    className={`${rowStatusClass[audit.status]} border-b border-gray-50 transition-colors hover:bg-auditart-blue/3 bg-white`}
                   >
                     <td className="px-5 py-3.5">
                       <span className="font-mono text-xs font-bold text-auditart-navy">
@@ -150,7 +206,17 @@ export function OperationalBoardPage() {
                       <div className="text-xs text-auditart-muted">{audit.especialidad}</div>
                     </td>
                     <td className="px-5 py-3.5 text-auditart-gray">
-                      {audit.profesional ?? (
+                      {audit.prestadorId && audit.profesional ? (
+                        <button
+                          type="button"
+                          onClick={() => setDetailPrestadorId(audit.prestadorId!)}
+                          className="font-medium text-auditart-blue hover:underline"
+                        >
+                          {audit.profesional}
+                        </button>
+                      ) : audit.profesional ? (
+                        audit.profesional
+                      ) : (
                         <span className="italic text-auditart-muted">Sin asignar</span>
                       )}
                     </td>
@@ -160,16 +226,42 @@ export function OperationalBoardPage() {
                     </td>
                     <td className="px-5 py-3.5 font-semibold text-auditart-navy">
                       {formatCurrency(audit.valorPactado)}
+                      {audit.valorConciliadoArt != null ? (
+                        <span className="ml-1 text-xs text-emerald-700">
+                          / ART {formatCurrency(audit.valorConciliadoArt)}
+                        </span>
+                      ) : null}
                     </td>
                     <td className="px-5 py-3.5">
                       <StatusBadge status={audit.status} compact />
+                      {audit.needsOperadorAssignment && (
+                        <span className="mt-1 block text-[10px] font-bold text-orange-700">
+                          Sin operador
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-5 py-3.5 text-xs text-auditart-gray">
+                      {audit.isChronicPeriodic ? (
+                        <div>
+                          <div>{audit.nextRenewalDue ? formatDateTime(audit.nextRenewalDue) : '—'}</div>
+                          {audit.chronicRenewalCount != null && audit.chronicRenewalCount > 0 && (
+                            <div className="text-[10px] text-auditart-muted">
+                              Ciclo {audit.chronicRenewalCount}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-auditart-muted">—</span>
+                      )}
                     </td>
                     <td className="px-5 py-3.5">
                       {slaWarning ? (
                         <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">
                           <AlertTriangle size={11} />
-                          {audit.slaHoursRemaining! <= 0
-                            ? 'Vencido'
+                          {slaExpired
+                            ? audit.slaHoursRemaining! <= -24
+                              ? `Vencido ${Math.abs(Math.round(audit.slaHoursRemaining! / 24))}d`
+                              : 'Vencido'
                             : `${audit.slaHoursRemaining}h`}
                         </span>
                       ) : audit.slaHoursRemaining != null ? (
@@ -197,7 +289,8 @@ export function OperationalBoardPage() {
                     </td>
                   </tr>
                 )
-              })}
+              }),
+              ])}
             </tbody>
           </table>
         </div>
@@ -226,6 +319,13 @@ export function OperationalBoardPage() {
           WhatsApp Cloud API para alertas de urgencia, turnos y SLA.
         </p>
       </div>
+
+      {detailPrestadorId && (
+        <PrestadorDetailModal
+          prestadorId={detailPrestadorId}
+          onClose={() => setDetailPrestadorId(null)}
+        />
+      )}
     </div>
   )
 }

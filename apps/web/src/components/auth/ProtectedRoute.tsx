@@ -1,14 +1,19 @@
 import { Navigate } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext'
+import { useAuth } from '../../context/useAuth'
 import type { Permission } from '../../types'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
   requiredPermission?: keyof Permission
+  allowPasswordChange?: boolean
 }
 
-export function ProtectedRoute({ children, requiredPermission }: ProtectedRouteProps) {
-  const { isAuthenticated, permissions, loading } = useAuth()
+export function ProtectedRoute({
+  children,
+  requiredPermission,
+  allowPasswordChange = false,
+}: ProtectedRouteProps) {
+  const { isAuthenticated, permissions, mustChangePassword, loading } = useAuth()
 
   if (loading) {
     return (
@@ -20,6 +25,10 @@ export function ProtectedRoute({ children, requiredPermission }: ProtectedRouteP
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />
+  }
+
+  if (mustChangePassword && !allowPasswordChange) {
+    return <Navigate to="/cambiar-contrasena" replace />
   }
 
   if (requiredPermission && !permissions[requiredPermission]) {

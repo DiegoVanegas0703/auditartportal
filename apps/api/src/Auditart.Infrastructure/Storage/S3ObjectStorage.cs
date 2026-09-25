@@ -55,18 +55,32 @@ public class S3ObjectStorage : IObjectStorage
         return key;
     }
 
-    public async Task<string> GetPresignedUrlAsync(string key, TimeSpan ttl, CancellationToken cancellationToken = default)
+    public async Task<ObjectDownload> DownloadAsync(
+        string key,
+        CancellationToken cancellationToken = default)
     {
         if (_useLocalFallback)
-            return $"/api/files/local/{Uri.EscapeDataString(key)}";
-
-        var request = new GetPreSignedUrlRequest
         {
-            BucketName = _bucket,
-            Key = key,
-            Expires = DateTime.UtcNow.Add(ttl),
-            Verb = HttpVerb.GET
-        };
-        return await Task.FromResult(_s3.GetPreSignedURL(request));
+            var root = Path.GetFullPath(_localRoot);
+            var fullPath = Path.GetFullPath(
+                Path.Combine(root, key.Replace('/', Path.DirectorySeparatorChar)));
+            var rootPrefix = root.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+
+            if (!fullPath.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Ruta de archivo inválida.");
+            if (!File.Exists(fullPath))
+                throw new FileNotFoundException("El archivo almacenado no existe.", fullPath);
+
+            return new ObjectDownload(File.OpenRead(fullPath), null);
+        }
+
+        var response = await _s3.GetObjectAsync(
+            new GetObjectRequest
+            {
+                BucketName = _bucket,
+                Key = key
+            },
+            cancellationToken);
+        return new ObjectDownload(response.ResponseStream, response.Headers.ContentType);
     }
 }

@@ -8,6 +8,8 @@ public class User : Entity
     public string Name { get; private set; } = string.Empty;
     public string Email { get; private set; } = string.Empty;
     public string? GoogleSubjectId { get; private set; }
+    public string? PasswordHash { get; private set; }
+    public bool MustChangePassword { get; private set; }
     public UserRole Role { get; private set; }
     public AuditQueue? DefaultQueue { get; private set; }
     public bool IsActive { get; private set; } = true;
@@ -57,6 +59,35 @@ public class User : Entity
     public void Deactivate()
     {
         IsActive = false;
+        Touch();
+    }
+
+    public void Activate()
+    {
+        IsActive = true;
+        Touch();
+    }
+
+    public void SetPassword(string passwordHash, bool mustChangePassword = false)
+    {
+        PasswordHash = passwordHash;
+        MustChangePassword = mustChangePassword;
+        Touch();
+    }
+
+    public void ChangePassword(string newPasswordHash)
+    {
+        PasswordHash = newPasswordHash;
+        MustChangePassword = false;
+        Touch();
+    }
+
+    public void UpdateProfile(string name, string email, UserRole role, AuditQueue? defaultQueue = null)
+    {
+        Name = name.Trim();
+        Email = email.Trim().ToLowerInvariant();
+        Role = role;
+        DefaultQueue = defaultQueue;
         Touch();
     }
 }

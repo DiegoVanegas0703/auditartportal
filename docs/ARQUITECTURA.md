@@ -19,7 +19,7 @@
 
 - Login: Google OAuth (en Dev: `dev:email@dominio.com`)
 - JWT access + refresh rotativo
-- Correo de prueba: `developmentcode@gmail.com` (inbox no leídos)
+- Correo de prueba: `dvelopmentcode@gmail.com` (inbox no leídos)
 - Adjuntos → S3 (local fallback en Development)
 - Triage: jefa elige operador y cola; servicio siempre nace en **Rojo**
 - PostgreSQL (local Docker → RDS en AWS)
@@ -62,7 +62,7 @@ Login de desarrollo (sin Google Console aún):
 
 ```http
 POST http://localhost:5070/api/auth/google
-{ "idToken": "dev:developmentcode@gmail.com" }
+{ "idToken": "dev:dvelopmentcode@gmail.com" }
 ```
 
 > Postgres Docker usa el puerto host **5433** (evita conflicto con Postgres nativo en 5432).
@@ -70,7 +70,7 @@ POST http://localhost:5070/api/auth/google
 ## Próximos pasos técnicos
 
 1. Credenciales Google OAuth (Client ID) para login real
-2. OAuth Gmail / Pub-Sub sobre `developmentcode@gmail.com`
+2. OAuth Gmail / Pub-Sub sobre `dvelopmentcode@gmail.com`
 3. Conectar frontend a la API (reemplazar mocks)
 4. Worker SLA 24/48hs + WhatsApp Cloud API
 5. Módulo facturación / export

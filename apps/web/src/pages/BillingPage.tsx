@@ -2,7 +2,7 @@ import { CheckCircle2, DollarSign, Download, FileSpreadsheet, ListChecks } from 
 import { useMemo, useState } from 'react'
 import { PageHeader } from '../components/ui/PageHeader'
 import { StatusBadge } from '../components/ui/StatusBadge'
-import { useAudits } from '../context/AuditContext'
+import { useAudits } from '../context/useAudits'
 import { SERVICE_LABELS } from '../types'
 import { formatDate, formatCurrency } from '../utils/format'
 
@@ -11,7 +11,13 @@ export function BillingPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [exported, setExported] = useState(false)
 
-  const greenAudits = useMemo(() => audits.filter((a) => a.status === 'verde'), [audits])
+  const greenAudits = useMemo(
+    () =>
+      audits.filter(
+        (a) => a.status === 'verde' || a.status === 'celeste',
+      ),
+    [audits],
+  )
 
   const totalSelected = useMemo(
     () =>
@@ -45,7 +51,7 @@ export function BillingPage() {
     <div className="animate-fade-in">
       <PageHeader
         title="Consolidación Contable"
-        subtitle="Servicios en estado Verde listos para facturación · Perfil Damián"
+        subtitle="Servicios en Verde / pago anticipado · Perfil facturación"
         action={
           <button
             onClick={handleExport}
@@ -124,7 +130,11 @@ export function BillingPage() {
               {greenAudits.map((audit, i) => (
                 <tr
                   key={audit.id}
-                  className={`row-status-verde border-b border-gray-50 transition-colors hover:bg-green-50/50 ${
+                  className={`${
+                    audit.status === 'celeste'
+                      ? 'row-status-celeste'
+                      : 'row-status-verde'
+                  } border-b border-gray-50 transition-colors hover:bg-green-50/50 ${
                     i % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
                   }`}
                 >

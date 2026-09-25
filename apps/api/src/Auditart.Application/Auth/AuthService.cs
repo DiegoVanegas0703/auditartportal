@@ -8,41 +8,54 @@ namespace Auditart.Application.Auth;
 public class AuthService
 {
     private readonly IAppDbContext _db;
-    private readonly IGoogleAuthService _google;
+    private readonly IPasswordHasher _hasher;
     private readonly IJwtTokenService _jwt;
 
-    public AuthService(IAppDbContext db, IGoogleAuthService google, IJwtTokenService jwt)
+    public AuthService(IAppDbContext db, IPasswordHasher hasher, IJwtTokenService jwt)
     {
         _db = db;
-        _google = google;
+        _hasher = hasher;
         _jwt = jwt;
     }
 
-    public async Task<AuthTokensDto> LoginWithGoogleAsync(string idToken, CancellationToken ct = default)
+    public async Task<AuthTokensDto> LoginAsync(string email, string password, CancellationToken ct = default)
     {
-        var googleUser = await _google.ValidateIdTokenAsync(idToken, ct);
-        if (!googleUser.EmailVerified)
-            throw new InvalidOperationException("El email de Google no está verificado.");
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+            throw new UnauthorizedAccessException("Email y contraseña son obligatorios.");
 
-        var user = await _db.Users
-            .FirstOrDefaultAsync(u => u.Email == googleUser.Email.ToLowerInvariant(), ct);
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == normalizedEmail, ct);
 
-        if (user is null)
-        {
-            // En MVP: usuarios mock pre-seeded. Si no existe, denegar (whitelist).
-            throw new UnauthorizedAccessException(
-                $"No hay un usuario registrado para {googleUser.Email}. Contactá al administrador.");
-        }
+        if (user is null || string.IsNullOrEmpty(user.PasswordHash))
+            throw new UnauthorizedAccessException("Credenciales inválidas.");
 
         if (!user.IsActive)
             throw new UnauthorizedAccessException("Usuario inactivo.");
 
-        if (string.IsNullOrEmpty(user.GoogleSubjectId))
-            user.LinkGoogle(googleUser.SubjectId);
+        if (!_hasher.Verify(password, user.PasswordHash))
+            throw new UnauthorizedAccessException("Credenciales inválidas.");
 
         user.RecordLogin();
-
         return await IssueTokensAsync(user, ct);
+    }
+
+    public async Task ChangePasswordAsync(
+        Guid userId,
+        string currentPassword,
+        string newPassword,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 4)
+            throw new InvalidOperationException("La nueva contraseña debe tener al menos 4 caracteres.");
+
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct)
+            ?? throw new UnauthorizedAccessException("Usuario no encontrado.");
+
+        if (string.IsNullOrEmpty(user.PasswordHash) || !_hasher.Verify(currentPassword, user.PasswordHash))
+            throw new UnauthorizedAccessException("La contraseña actual no es correcta.");
+
+        user.ChangePassword(_hasher.Hash(newPassword));
+        await _db.SaveChangesAsync(ct);
     }
 
     public async Task<AuthTokensDto> RefreshAsync(string rawRefreshToken, CancellationToken ct = default)
@@ -99,10 +112,13 @@ public class AuthService
         user.Email,
         user.Role,
         user.DefaultQueue,
+        user.MustChangePassword,
         new AuthPermissionsDto(
             PermissionService.CanTriage(user.Role),
             PermissionService.CanOperateBoard(user.Role),
             PermissionService.CanBill(user.Role),
             PermissionService.SeesAllQueues(user.Role),
-            PermissionService.CanManageUsers(user.Role)));
+            PermissionService.CanManageUsers(user.Role),
+            PermissionService.CanViewReports(user.Role),
+            PermissionService.CanManagePrecios(user.Role)));
 }

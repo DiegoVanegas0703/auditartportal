@@ -7,5 +7,6 @@ public enum ServiceType
     Domicilio = 2,
     Telemedicina = 3,
     ComisionMedica = 4,
-    ValoracionDano = 5
+    ValoracionDano = 5,
+    OtraAuditoria = 6
 }

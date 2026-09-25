@@ -43,4 +43,10 @@ public class ServiceAttachment : Entity
         AuditServiceId = auditServiceId;
         Touch();
     }
+
+    public void UnlinkFromService()
+    {
+        AuditServiceId = null;
+        Touch();
+    }
 }

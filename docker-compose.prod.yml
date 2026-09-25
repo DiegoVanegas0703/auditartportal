@@ -1,0 +1,57 @@
+# Producción / piloto barato: web (nginx) + api en la misma máquina.
+# Uso:
+#   cp deploy/.env.prod.example .env
+#   docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+#
+# Postgres: usá RDS (recomendado) vía ConnectionStrings__Default en .env
+# o descomentá el servicio "db" para ultra-bajo costo (todo en un host).
+
+services:
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+    expose:
+      - "8080"
+    # Si usás Postgres del compose, descomentá:
+    # depends_on:
+    #   db:
+    #     condition: service_healthy
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ""
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+
+  # --- Opcional: Postgres local (más barato que RDS; menos durable) ---
+  # db:
+  #   image: postgres:16-alpine
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_DB: auditart
+  #     POSTGRES_USER: auditart
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-auditart_dev}
+  #   volumes:
+  #     - auditart_pgdata:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U auditart -d auditart"]
+  #     interval: 5s
+  #     timeout: 5s
+  #     retries: 10
+  #   # Sin publicar 5432 a Internet.
+
+# volumes:
+#   auditart_pgdata:

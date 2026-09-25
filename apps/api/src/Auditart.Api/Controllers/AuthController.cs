@@ -1,6 +1,9 @@
+using System.Security.Claims;
+using Auditart.Application.Abstractions;
 using Auditart.Application.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Auditart.Api.Controllers;
 
@@ -15,19 +18,38 @@ public class AuthController : ControllerBase
         _auth = auth;
     }
 
-    /// <summary>
-    /// Login con Google ID token. En Development también acepta: idToken = "dev:email@dominio.com"
-    /// </summary>
-    [HttpPost("google")]
+    [HttpPost("login")]
     [AllowAnonymous]
-    public async Task<ActionResult<AuthTokensDto>> GoogleLogin(
-        [FromBody] GoogleLoginRequest request,
+    public async Task<ActionResult<AuthTokensDto>> Login(
+        [FromBody] LoginRequest request,
         CancellationToken ct)
     {
         try
         {
-            var tokens = await _auth.LoginWithGoogleAsync(request.IdToken, ct);
+            var tokens = await _auth.LoginAsync(request.Email, request.Password, ct);
             return Ok(tokens);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("change-password")]
+    [Authorize]
+    public async Task<IActionResult> ChangePassword(
+        [FromBody] ChangePasswordRequest request,
+        CancellationToken ct)
+    {
+        var sub = User.FindFirst("sub")?.Value
+            ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!Guid.TryParse(sub, out var userId))
+            return Unauthorized();
+
+        try
+        {
+            await _auth.ChangePasswordAsync(userId, request.CurrentPassword, request.NewPassword, ct);
+            return NoContent();
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -67,16 +89,16 @@ public class AuthController : ControllerBase
     [HttpGet("me")]
     [Authorize]
     public async Task<ActionResult<AuthUserDto>> Me(
-        [FromServices] Application.Abstractions.IAppDbContext db,
+        [FromServices] IAppDbContext db,
         CancellationToken ct)
     {
         var sub = User.FindFirst("sub")?.Value
-            ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
         if (!Guid.TryParse(sub, out var userId))
             return Unauthorized();
 
-        var user = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions
+        var user = await EntityFrameworkQueryableExtensions
             .FirstOrDefaultAsync(db.Users, u => u.Id == userId, ct);
 
         if (user is null) return Unauthorized();

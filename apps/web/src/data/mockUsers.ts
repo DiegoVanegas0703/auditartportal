@@ -31,25 +31,18 @@ export const MOCK_USERS: User[] = [
     id: 'u5',
     name: 'Martín Acosta',
     email: 'martin.acosta@auditart.com.ar',
-    role: 'operador',
-    queue: 'general',
-  },
-  {
-    id: 'u6',
-    name: 'Aylen Martínez',
-    email: 'aylen.martinez@auditart.com.ar',
     role: 'telemedicina',
     queue: 'telemedicina',
   },
   {
-    id: 'u7',
-    name: 'Carolina Ruiz',
-    email: 'cronicos@auditart.com.ar',
+    id: 'u6',
+    name: 'Sofía Ruiz',
+    email: 'sofia.ruiz@auditart.com.ar',
     role: 'cronicos',
     queue: 'cronicos',
   },
   {
-    id: 'u8',
+    id: 'u7',
     name: 'Damián López',
     email: 'damian.lopez@auditart.com.ar',
     role: 'facturacion',
@@ -67,6 +60,8 @@ export function getPermissions(role: UserRole): Permission {
         billing: true,
         allQueues: true,
         manageUsers: true,
+        reports: true,
+        precios: true,
       }
     case 'jefatura':
       return {
@@ -75,23 +70,11 @@ export function getPermissions(role: UserRole): Permission {
         billing: false,
         allQueues: true,
         manageUsers: false,
+        reports: true,
+        precios: true,
       }
     case 'operador':
-      return {
-        triage: false,
-        operationalBoard: true,
-        billing: false,
-        allQueues: false,
-        manageUsers: false,
-      }
     case 'telemedicina':
-      return {
-        triage: false,
-        operationalBoard: true,
-        billing: false,
-        allQueues: false,
-        manageUsers: false,
-      }
     case 'cronicos':
       return {
         triage: false,
@@ -99,6 +82,8 @@ export function getPermissions(role: UserRole): Permission {
         billing: false,
         allQueues: false,
         manageUsers: false,
+        reports: false,
+        precios: false,
       }
     case 'facturacion':
       return {
@@ -107,6 +92,8 @@ export function getPermissions(role: UserRole): Permission {
         billing: true,
         allQueues: false,
         manageUsers: false,
+        reports: false,
+        precios: true,
       }
   }
 }

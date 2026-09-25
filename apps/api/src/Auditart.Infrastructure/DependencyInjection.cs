@@ -1,10 +1,18 @@
 using System.Text;
 using Auditart.Application.Abstractions;
 using Auditart.Application.Auth;
+using Auditart.Application.Triage;
+using Auditart.Application.Users;
+using Auditart.Application.Prestadores;
 using Auditart.Infrastructure.Auth;
 using Auditart.Infrastructure.Gmail;
 using Auditart.Infrastructure.Persistence;
 using Auditart.Infrastructure.Storage;
+using Auditart.Application.Chronic;
+using Auditart.Application.Reports;
+using Auditart.Application.Sla;
+using Auditart.Infrastructure.Chronic;
+using Auditart.Infrastructure.Sla;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -22,9 +30,28 @@ public static class DependencyInjection
 
         services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
         services.AddScoped<IJwtTokenService, JwtTokenService>();
-        services.AddScoped<IGoogleAuthService, GoogleAuthService>();
+        services.AddScoped<IPasswordHasher, BCryptPasswordHasher>();
         services.AddScoped<IObjectStorage, S3ObjectStorage>();
-        services.AddScoped<IGmailInboxService, StubGmailInboxService>();
+        services.Configure<GmailOptions>(configuration.GetSection(GmailOptions.SectionName));
+        services.AddSingleton<IGmailChannelRegistry, GmailChannelRegistry>();
+        services.AddScoped<GmailIngestionService>();
+        services.AddScoped<EmailConversationService>();
+        services.AddScoped<EmailOutboxProcessor>();
+        services.AddScoped<DenunciaPdfParser>();
+        services.AddScoped<UserAdminService>();
+        services.AddScoped<PrestadorService>();
+        services.AddScoped<Auditart.Application.Pacientes.PacienteService>();
+        services.AddScoped<Auditart.Application.Precios.PrecioCatalogoService>();
+        services.AddHostedService<GmailPollingWorker>();
+        services.AddHostedService<EmailOutboxWorker>();
+        services.AddScoped<ChronicServiceService>();
+        services.AddScoped<ReportsService>();
+        services.AddScoped<SlaRuleService>();
+        services.AddScoped<InAppAlertService>();
+        services.Configure<ChronicRenewalOptions>(configuration.GetSection(ChronicRenewalOptions.SectionName));
+        services.AddHostedService<ChronicRenewalWorker>();
+        services.Configure<SlaAlertOptions>(configuration.GetSection(SlaAlertOptions.SectionName));
+        services.AddHostedService<SlaAlertWorker>();
         services.AddScoped<AuthService>();
 
         var jwtKey = configuration["Jwt:Key"]

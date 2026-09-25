@@ -1,14 +1,22 @@
 import {
   AlertTriangle,
+  BarChart3,
+  Bell,
   ClipboardList,
   FileSpreadsheet,
   Inbox,
   LayoutDashboard,
   LogOut,
+  Timer,
+  Users,
+  Stethoscope,
+  CircleDollarSign,
 } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext'
-import { useAudits } from '../../context/AuditContext'
+import { alertsApi } from '../../api/auditartApi'
+import { useAuth } from '../../context/useAuth'
+import { useAudits } from '../../context/useAudits'
 import { ROLE_LABELS } from '../../types'
 import { getInitials } from '../../utils/format'
 import { Logo } from '../ui/Logo'
@@ -17,13 +25,41 @@ const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', perm: 'any' as const },
   { to: '/triage', icon: Inbox, label: 'Bandeja Triage', perm: 'triage' as const },
   { to: '/tablero', icon: ClipboardList, label: 'Tablero Operativo', perm: 'operationalBoard' as const },
+  { to: '/alertas', icon: Bell, label: 'Alertas SLA', perm: 'operationalBoard' as const },
+  { to: '/auditorias', icon: BarChart3, label: 'Auditorías', perm: 'reports' as const },
+  { to: '/sla', icon: Timer, label: 'Reglas SLA', perm: 'reports' as const },
+  { to: '/doctores', icon: Stethoscope, label: 'Doctores', perm: 'reports' as const },
+  { to: '/precios', icon: CircleDollarSign, label: 'Precios', perm: 'precios' as const },
   { to: '/facturacion', icon: FileSpreadsheet, label: 'Facturación', perm: 'billing' as const },
+  { to: '/usuarios', icon: Users, label: 'Usuarios', perm: 'manageUsers' as const },
 ]
 
 export function Sidebar() {
   const { user, permissions, logout } = useAuth()
   const { getStats } = useAudits()
   const stats = getStats()
+  const [unreadAlerts, setUnreadAlerts] = useState(0)
+
+  useEffect(() => {
+    if (!permissions.operationalBoard) return
+    let cancelled = false
+    const load = () => {
+      void alertsApi
+        .count()
+        .then((r) => {
+          if (!cancelled) setUnreadAlerts(r.unread)
+        })
+        .catch(() => {
+          if (!cancelled) setUnreadAlerts(0)
+        })
+    }
+    load()
+    const timer = window.setInterval(load, 60000)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [permissions.operationalBoard])
 
   if (!user) return null
 
@@ -63,10 +99,10 @@ export function Sidebar() {
                   {stats.emailsPendientes}
                 </span>
               )}
-              {item.to === '/tablero' && stats.slaAlertas > 0 && (
+              {item.to === '/alertas' && unreadAlerts > 0 && (
                 <span className="flex items-center gap-0.5 rounded-full bg-orange-500 px-2 py-0.5 text-[10px] font-bold shadow-sm">
                   <AlertTriangle size={9} />
-                  {stats.slaAlertas}
+                  {unreadAlerts}
                 </span>
               )}
             </NavLink>

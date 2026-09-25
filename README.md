@@ -23,7 +23,7 @@ Mas detalle: [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md).
 ## Decisiones de alcance (fases 1-4)
 
 1. **Fases 1-4 en alcance** - entrega incremental del portal y la API segun el plan de fases del producto.
-2. **Correo de prueba Gmail** - cuenta de desarrollo: developmentcode@gmail.com.
+2. **Correo de prueba Gmail** - cuenta de desarrollo: dvelopmentcode@gmail.com.
 3. **Login con Google OAuth** - autenticacion de usuarios via Google.
 4. **PostgreSQL en RDS** - base de datos gestionada en AWS RDS.
 5. **JWT + refresh** - tokens de acceso JWT con refresh tokens para sesiones.
@@ -65,7 +65,24 @@ Para detener:
 Al arrancar aplica migraciones y seed de usuarios mock.
 
 - Health: `GET http://localhost:5070/health`
-- Login Dev: `POST http://localhost:5070/api/auth/google` con `{ "idToken": "dev:developmentcode@gmail.com" }`
+- Login Dev: `POST http://localhost:5070/api/auth/google` con `{ "idToken": "dev:dvelopmentcode@gmail.com" }`
+- Sync Gmail: `POST http://localhost:5070/api/triage/sync-gmail` (Admin/Jefatura)
+
+### Gmail real
+
+La API arranca con Gmail deshabilitado y usa un stub seguro. Para conectar
+`dvelopmentcode@gmail.com` o **renovar el refresh token**, seguí la guía:
+
+- [docs/GMAIL-REFRESH-TOKEN.md](docs/GMAIL-REFRESH-TOKEN.md) — paso a paso (OAuth Playground + User Secrets)
+
+Resumen rápido (secretos fuera de Git):
+
+    cd apps/api/src/Auditart.Api
+    dotnet user-secrets set "Gmail:Enabled" "true"
+    dotnet user-secrets set "Gmail:Mailbox" "dvelopmentcode@gmail.com"
+    dotnet user-secrets set "Gmail:ClientId" "<client-id>"
+    dotnet user-secrets set "Gmail:ClientSecret" "<client-secret>"
+    dotnet user-secrets set "Gmail:RefreshToken" "<refresh-token>"
 
 Migraciones EF Core:
 
@@ -74,7 +91,11 @@ Migraciones EF Core:
 
 ## Documentacion
 
+- [docs/CONTEXTO-PROYECTO.md](docs/CONTEXTO-PROYECTO.md) - **handoff completo** (leer al cambiar de PC)
+- [docs/DEPLOY-GCP-DEMO.md](docs/DEPLOY-GCP-DEMO.md) - demo en Google Cloud con créditos gratis
 - [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md) - capas, endpoints REST, triage y stack
+- [docs/GMAIL-REFRESH-TOKEN.md](docs/GMAIL-REFRESH-TOKEN.md) - renovar token OAuth de Gmail
+- [docs/DEPLOY-AWS.md](docs/DEPLOY-AWS.md) - despliegue AWS de bajo costo (EC2 + S3 + RDS)
 
 ## Repositorio
 

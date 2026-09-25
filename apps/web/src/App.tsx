@@ -1,17 +1,26 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { ProtectedRoute } from './components/auth/ProtectedRoute'
 import { AppLayout } from './components/layout/AppLayout'
-import { AuthProvider, useAuth } from './context/AuthContext'
+import { AuthProvider } from './context/AuthContext'
 import { AuditProvider } from './context/AuditContext'
+import { useAuth } from './context/useAuth'
+import { AlertsPage } from './pages/AlertsPage'
 import { AuditDetailPage } from './pages/AuditDetailPage'
 import { BillingPage } from './pages/BillingPage'
+import { ChangePasswordPage } from './pages/ChangePasswordPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
 import { OperationalBoardPage } from './pages/OperationalBoardPage'
+import { PacientePage } from './pages/PacientePage'
+import { ReportsPage } from './pages/ReportsPage'
+import { SlaRulesPage } from './pages/SlaRulesPage'
+import { PrestadoresPage } from './pages/PrestadoresPage'
+import { PreciosPage } from './pages/PreciosPage'
 import { TriagePage } from './pages/TriagePage'
+import { UsersAdminPage } from './pages/UsersAdminPage'
 
 function AppRoutes() {
-  const { isAuthenticated, loading } = useAuth()
+  const { isAuthenticated, loading, mustChangePassword } = useAuth()
 
   if (loading) {
     return (
@@ -25,7 +34,28 @@ function AppRoutes() {
     <Routes>
       <Route
         path="/login"
-        element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />}
+        element={
+          isAuthenticated ? (
+            <Navigate
+              to={mustChangePassword ? '/cambiar-contrasena' : '/'}
+              replace
+            />
+          ) : (
+            <LoginPage />
+          )
+        }
+      />
+      <Route
+        path="/cambiar-contrasena"
+        element={
+          isAuthenticated ? (
+            <ProtectedRoute allowPasswordChange>
+              <ChangePasswordPage />
+            </ProtectedRoute>
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
       />
       <Route
         element={
@@ -52,6 +82,50 @@ function AppRoutes() {
           }
         />
         <Route
+          path="cronicos/nuevo"
+          element={<Navigate to="/tablero" replace />}
+        />
+        <Route
+          path="alertas"
+          element={
+            <ProtectedRoute requiredPermission="operationalBoard">
+              <AlertsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="sla"
+          element={
+            <ProtectedRoute requiredPermission="reports">
+              <SlaRulesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="doctores"
+          element={
+            <ProtectedRoute requiredPermission="reports">
+              <PrestadoresPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="precios"
+          element={
+            <ProtectedRoute requiredPermission="precios">
+              <PreciosPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="auditorias"
+          element={
+            <ProtectedRoute requiredPermission="reports">
+              <ReportsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="facturacion"
           element={
             <ProtectedRoute requiredPermission="billing">
@@ -59,9 +133,30 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="usuarios"
+          element={
+            <ProtectedRoute requiredPermission="manageUsers">
+              <UsersAdminPage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="servicio/:id" element={<AuditDetailPage />} />
+        <Route
+          path="pacientes/:id"
+          element={
+            <ProtectedRoute requiredPermission="operationalBoard">
+              <PacientePage />
+            </ProtectedRoute>
+          }
+        />
       </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route
+        path="*"
+        element={
+          <Navigate to={mustChangePassword ? '/cambiar-contrasena' : '/'} replace />
+        }
+      />
     </Routes>
   )
 }

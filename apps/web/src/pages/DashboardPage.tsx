@@ -10,8 +10,9 @@ import { Link } from 'react-router-dom'
 import { PageHeader } from '../components/ui/PageHeader'
 import { StatCard } from '../components/ui/StatCard'
 import { StatusBadge } from '../components/ui/StatusBadge'
-import { useAuth } from '../context/AuthContext'
-import { filterAuditsForUser, useAudits } from '../context/AuditContext'
+import { useAuth } from '../context/useAuth'
+import { filterAuditsForUser } from '../utils/auditHelpers'
+import { useAudits } from '../context/useAudits'
 import { formatDateTime } from '../utils/format'
 
 export function DashboardPage() {
@@ -38,6 +39,26 @@ export function DashboardPage() {
         <StatCard label="Doc. pendiente (SLA)" value={stats.azul} icon={AlertTriangle} variant="azul" alert={stats.slaAlertas} />
         <StatCard label="Listos facturación" value={stats.verde} icon={CheckCircle2} variant="verde" />
       </div>
+
+      {(permissions.reports || permissions.triage || permissions.operationalBoard) && (
+        <div className="card-flat mb-8 flex flex-wrap gap-3 p-4">
+          {permissions.operationalBoard && (
+            <Link to="/alertas" className="rounded-full bg-orange-50 px-4 py-2 text-xs font-bold text-orange-700 hover:bg-orange-100">
+              Alertas SLA
+            </Link>
+          )}
+          {permissions.reports && (
+            <>
+              <Link to="/auditorias" className="rounded-full bg-auditart-navy/8 px-4 py-2 text-xs font-bold text-auditart-navy hover:bg-auditart-navy/15">
+                Auditorías / reportes
+              </Link>
+              <Link to="/sla" className="rounded-full bg-auditart-navy/8 px-4 py-2 text-xs font-bold text-auditart-navy hover:bg-auditart-navy/15">
+                Reglas SLA
+              </Link>
+            </>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {permissions.triage && (

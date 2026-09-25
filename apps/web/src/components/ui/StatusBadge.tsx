@@ -5,6 +5,7 @@ const badgeStyles: Record<AuditStatus, string> = {
   amarillo: 'bg-yellow-50 text-yellow-700 ring-1 ring-yellow-200',
   azul: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200',
   verde: 'bg-green-50 text-green-700 ring-1 ring-green-200',
+  celeste: 'bg-sky-50 text-sky-800 ring-1 ring-sky-200',
 }
 
 const dotStyles: Record<AuditStatus, string> = {
@@ -12,6 +13,7 @@ const dotStyles: Record<AuditStatus, string> = {
   amarillo: 'bg-yellow-500',
   azul: 'bg-blue-500',
   verde: 'bg-green-500',
+  celeste: 'bg-sky-400',
 }
 
 interface StatusBadgeProps {
@@ -20,12 +22,15 @@ interface StatusBadgeProps {
 }
 
 export function StatusBadge({ status, compact }: StatusBadgeProps) {
+  const compactLabel =
+    status === 'celeste' ? 'Celeste' : status.charAt(0).toUpperCase() + status.slice(1)
+
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${badgeStyles[status]}`}
     >
       <span className={`h-1.5 w-1.5 rounded-full ${dotStyles[status]}`} />
-      {compact ? status.charAt(0).toUpperCase() + status.slice(1) : STATUS_LABELS[status]}
+      {compact ? compactLabel : STATUS_LABELS[status]}
     </span>
   )
 }
