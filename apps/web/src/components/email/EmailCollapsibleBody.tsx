@@ -1,9 +1,9 @@
 import { ChevronDown } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 
-const COLLAPSED_MAX_HEIGHT = 320
+const COLLAPSED_MAX_HEIGHT = 260
 
-/** Limita el alto del cuerpo del correo y ofrece "Ver más" cuando el contenido es extenso. */
+/** Muestra el cuerpo extenso en un recuadro con scroll propio y permite expandirlo completo. */
 export function EmailCollapsibleBody({ children }: { children: ReactNode }) {
   const contentRef = useRef<HTMLDivElement>(null)
   const [overflowing, setOverflowing] = useState(false)
@@ -24,13 +24,14 @@ export function EmailCollapsibleBody({ children }: { children: ReactNode }) {
   return (
     <div>
       <div
-        className="relative overflow-hidden"
+        className={
+          collapsed
+            ? 'overflow-y-auto overscroll-contain rounded-xl border border-gray-200 bg-white p-3 [scrollbar-width:thin]'
+            : undefined
+        }
         style={collapsed ? { maxHeight: COLLAPSED_MAX_HEIGHT } : undefined}
       >
         <div ref={contentRef}>{children}</div>
-        {collapsed && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white to-transparent" />
-        )}
       </div>
       {overflowing && (
         <button
@@ -38,7 +39,7 @@ export function EmailCollapsibleBody({ children }: { children: ReactNode }) {
           onClick={() => setShowAll((v) => !v)}
           className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-auditart-blue hover:underline"
         >
-          {showAll ? 'Ver menos' : 'Ver más'}
+          {showAll ? 'Ver menos' : 'Ver correo completo'}
           <ChevronDown size={14} className={`transition-transform ${showAll ? 'rotate-180' : ''}`} />
         </button>
       )}
