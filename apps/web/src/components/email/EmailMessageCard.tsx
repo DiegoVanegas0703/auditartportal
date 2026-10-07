@@ -2,6 +2,7 @@ import { AlertCircle, ArrowDownLeft, ArrowUpRight, ChevronDown, Paperclip } from
 import type { ConversationMessage } from '../../types'
 import { formatDateTime } from '../../utils/format'
 import { EmailAttachmentsList } from './EmailAttachmentsList'
+import { EmailCollapsibleBody } from './EmailCollapsibleBody'
 import { EmailHtmlFrame } from './EmailHtmlFrame'
 
 const STATUS_LABELS: Record<string, string> = {
@@ -93,13 +94,15 @@ export function EmailMessageCard({
           )}
 
           <p className="mb-2 text-sm font-semibold text-auditart-navy">{message.subject}</p>
-          {message.bodyHtml ? (
-            <EmailHtmlFrame html={message.bodyHtml} />
-          ) : (
-            <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-auditart-navy/80">
-              {message.bodyText}
-            </p>
-          )}
+          <EmailCollapsibleBody>
+            {message.bodyHtml ? (
+              <EmailHtmlFrame html={message.bodyHtml} />
+            ) : (
+              <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-auditart-navy/80">
+                {message.bodyText}
+              </p>
+            )}
+          </EmailCollapsibleBody>
 
           {message.lastError && (
             <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-red-600">
