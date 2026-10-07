@@ -18,6 +18,10 @@ public static class PermissionService
     public static bool CanManagePrecios(UserRole role) =>
         role is UserRole.Admin or UserRole.Jefatura or UserRole.Facturacion;
 
+    /// <summary>Alta manual de pacientes: Admin y Jefatura.</summary>
+    public static bool CanCreatePacientes(UserRole role) =>
+        role is UserRole.Admin or UserRole.Jefatura;
+
     public static bool CanManageUsers(UserRole role) =>
         role is UserRole.Admin;
 

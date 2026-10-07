@@ -1,6 +1,6 @@
 import { ArrowLeft, Loader2, Pencil, Plus } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { pacientesApi, type PacienteDto } from '../api/auditartApi'
 import { useAudits } from '../context/useAudits'
 import { PageHeader } from '../components/ui/PageHeader'
@@ -29,6 +29,7 @@ const SERVICE_OPTIONS: ServiceType[] = [
 export function PacientePage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const { refresh } = useAudits()
   const [data, setData] = useState<PacienteDto | null>(null)
   const [loading, setLoading] = useState(true)
@@ -75,6 +76,18 @@ export function PacientePage() {
   useEffect(() => {
     if (id) void load(id)
   }, [id])
+
+  useEffect(() => {
+    const state = location.state as { pacienteNuevo?: boolean; pacienteExistente?: boolean } | null
+    if (!state?.pacienteNuevo && !state?.pacienteExistente) return
+    setShowForm(true)
+    setToast(
+      state.pacienteNuevo
+        ? 'Paciente creado. Cargá su primera prestación para que aparezca en el tablero.'
+        : 'Ya existía un paciente con ese nombre y DNI: esta es su ficha.',
+    )
+    navigate(location.pathname, { replace: true, state: null })
+  }, [location.state, location.pathname, navigate])
 
   const savePaciente = async (e: React.FormEvent) => {
     e.preventDefault()

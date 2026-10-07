@@ -41,12 +41,13 @@ import {
 } from '../types'
 import { formatDateTime, formatCurrency } from '../utils/format'
 
-/** Debe coincidir con AuditService.FactorArtEspecialista en la API. */
-const FACTOR_ART_ESPECIALISTA = 0.035
+/** Debe coincidir con AuditService.RecargoArtEspecialista en la API. */
+const RECARGO_ART_ESPECIALISTA = 0.035
 
-/** Total a cobrar ART = valor especialista × (1,5 si +50% | 2 si +100%) × 0,035. */
+/** Total a cobrar ART = valor × (1,5 | 2) + 3,5% de ese producto. Ej.: 25000×1,5 + 1312,5 = 38812,5 */
 function conciliadoEspecialista(base: number, pct: 50 | 100): number {
-  return Math.round(base * (1 + pct / 100) * FACTOR_ART_ESPECIALISTA * 100) / 100
+  const producto = base * (1 + pct / 100)
+  return Math.round(producto * (1 + RECARGO_ART_ESPECIALISTA) * 100) / 100
 }
 
 const TRANSITIONS: Record<
@@ -1057,7 +1058,7 @@ export function AuditDetailPage() {
                     }`}
                   >
                     <p className="text-lg font-extrabold text-emerald-800">+50%</p>
-                    <p className="mt-0.5 text-xs text-auditart-muted">valor × 1,5 × 0,035</p>
+                    <p className="mt-0.5 text-xs text-auditart-muted">valor × 1,5 + 3,5%</p>
                     {catalogBaseValor != null && (
                       <p className="mt-2 text-sm font-semibold text-emerald-800">
                         {formatCurrency(catalogBaseValor)} →{' '}
@@ -1075,7 +1076,7 @@ export function AuditDetailPage() {
                     }`}
                   >
                     <p className="text-lg font-extrabold text-emerald-800">+100%</p>
-                    <p className="mt-0.5 text-xs text-auditart-muted">valor × 2 × 0,035</p>
+                    <p className="mt-0.5 text-xs text-auditart-muted">valor × 2 + 3,5%</p>
                     {catalogBaseValor != null && (
                       <p className="mt-2 text-sm font-semibold text-emerald-800">
                         {formatCurrency(catalogBaseValor)} →{' '}
@@ -1156,8 +1157,14 @@ export function AuditDetailPage() {
               {precioTipo === 'especialista' && catalogBaseValor != null && (
                 <div className="mt-4 rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-900 ring-1 ring-emerald-200">
                   <span className="font-semibold">Total a cobrar ART: </span>
-                  {formatCurrency(catalogBaseValor)} × {pctEspecialista === 50 ? '1,5' : '2'} ×{' '}
-                  0,035 ={' '}
+                  {formatCurrency(catalogBaseValor)} × {pctEspecialista === 50 ? '1,5' : '2'} ={' '}
+                  {formatCurrency(catalogBaseValor * (1 + pctEspecialista / 100))} + 3,5% (
+                  {formatCurrency(
+                    Math.round(
+                      catalogBaseValor * (1 + pctEspecialista / 100) * RECARGO_ART_ESPECIALISTA * 100,
+                    ) / 100,
+                  )}
+                  ) ={' '}
                   <span className="font-extrabold">
                     {formatCurrency(conciliadoEspecialista(catalogBaseValor, pctEspecialista))}
                   </span>

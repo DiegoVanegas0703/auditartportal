@@ -112,9 +112,12 @@ Rojo → Amarillo → Azul | Verde → Celeste
 - Operador elige **Médico auditor** o **Especialista**.
 - Catálogo `/precios` (Admin / Jefatura / Facturación).
 - Auditor → precios filtrados por ART del caso.
-- Especialista → catálogo global; **Total a cobrar ART = valor especialista × 1,5 (+50%) o × 2 (+100%) × 0,035**.  
-  Ejemplo: valor 100.000 → 100.000 × 1,5 × 0,035 = 5.250 (o × 2 × 0,035 = 7.000).  
-  Factor único: `AuditService.FactorArtEspecialista` (API) y `FACTOR_ART_ESPECIALISTA` (front).
+- Especialista → catálogo global; **Total a cobrar ART = valor especialista × 1,5 (+50%) o × 2 (+100%) + 3,5% de ese producto**.
+  Ejemplo: 25.000 × 1,5 = 37.500 + 1.312,5 = **38.812,5**.
+  Recargo único: `AuditService.RecargoArtEspecialista` (API) y `RECARGO_ART_ESPECIALISTA` (front).
+- Alta manual de pacientes (Admin/Jefatura): botón **Nuevo paciente** en el tablero (`POST /api/pacientes`).
+  Si ya existe uno con mismo nombre+DNI, se abre su ficha. Tras crear, se abre el formulario de primera prestación
+  (un paciente sin prestaciones no aparece en el tablero).
 - “Presupuesto enviado a ART” se marca/desmarca con clic en el detalle.
 - La autorización se puede cargar en cualquier estado salvo Celeste (incluido Rojo).
 - UI: modal “Negociar precios” + detalle en acordeones (menos scroll).

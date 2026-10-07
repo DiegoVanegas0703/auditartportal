@@ -413,14 +413,14 @@ public class AuditService : Entity
         Touch();
     }
 
-    /// <summary>Total a cobrar ART (especialista) = valor × (1,5 | 2) × este factor.</summary>
-    public const decimal FactorArtEspecialista = 0.035m;
+    /// <summary>Recargo sobre el producto: total ART = valor × (1,5 | 2) + 3,5% de ese producto.</summary>
+    public const decimal RecargoArtEspecialista = 0.035m;
 
-    public static decimal CalcularTotalArtEspecialista(decimal valorEspecialista, int porcentaje) =>
-        Math.Round(
-            valorEspecialista * (1m + porcentaje / 100m) * FactorArtEspecialista,
-            2,
-            MidpointRounding.AwayFromZero);
+    public static decimal CalcularTotalArtEspecialista(decimal valorEspecialista, int porcentaje)
+    {
+        var producto = valorEspecialista * (1m + porcentaje / 100m);
+        return Math.Round(producto * (1m + RecargoArtEspecialista), 2, MidpointRounding.AwayFromZero);
+    }
 
     /// <summary>
     /// Negociación comercial en Rojo: modalidad auditor/especialista + valores.

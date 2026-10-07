@@ -1,6 +1,7 @@
-import { AlertTriangle, ExternalLink, MessageCircle, Search } from 'lucide-react'
+import { AlertTriangle, ExternalLink, MessageCircle, Search, UserPlus } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { NuevoPacienteModal } from '../components/pacientes/NuevoPacienteModal'
 import { PrestadorDetailModal } from '../components/prestadores/PrestadorDetailModal'
 import { PageHeader } from '../components/ui/PageHeader'
 import { StatusBadge } from '../components/ui/StatusBadge'
@@ -33,8 +34,9 @@ const rowStatusClass: Record<AuditStatus, string> = {
 }
 
 export function OperationalBoardPage() {
-  const { user } = useAuth()
+  const { user, permissions } = useAuth()
   const { audits } = useAudits()
+  const [showNuevoPaciente, setShowNuevoPaciente] = useState(false)
   const [statusFilter, setStatusFilter] = useState<AuditStatus | 'todos'>('todos')
   const [search, setSearch] = useState('')
   const [detailPrestadorId, setDetailPrestadorId] = useState<string | null>(null)
@@ -81,7 +83,16 @@ export function OperationalBoardPage() {
         title="Tablero Operativo"
         subtitle={`Reemplazo de planilla Excel · ${user?.queue ? QUEUE_LABELS[user.queue] : 'Todas las colas'}`}
         action={
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {permissions.triage && (
+              <button
+                type="button"
+                onClick={() => setShowNuevoPaciente(true)}
+                className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm"
+              >
+                <UserPlus size={15} /> Nuevo paciente
+              </button>
+            )}
             {STATUS_FILTERS.filter((f) => f.key !== 'todos').map((f) => (
               <span
                 key={f.key}
@@ -329,6 +340,8 @@ export function OperationalBoardPage() {
           onClose={() => setDetailPrestadorId(null)}
         />
       )}
+
+      {showNuevoPaciente && <NuevoPacienteModal onClose={() => setShowNuevoPaciente(false)} />}
     </div>
   )
 }

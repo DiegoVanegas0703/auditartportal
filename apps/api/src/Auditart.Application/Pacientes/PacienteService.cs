@@ -78,6 +78,30 @@ public sealed class PacienteService
         return Map(entity, prestaciones);
     }
 
+    /// <summary>Alta manual. Si ya existe un paciente con el mismo nombre + DNI, devuelve ese.</summary>
+    public async Task<CreatePacienteResult> CreateAsync(UpdatePacienteRequest request, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.Nombre))
+            throw new ArgumentException("El nombre del paciente es obligatorio.");
+        if (Paciente.NormalizeDni(request.Dni) is null)
+            throw new ArgumentException("El DNI del paciente es obligatorio.");
+
+        var existing = await FindMatchAsync(request.Nombre, request.Dni, ct);
+        if (existing is not null)
+            return new CreatePacienteResult(false, await GetAsync(existing.Id, ct));
+
+        var created = Paciente.Create(
+            request.Nombre,
+            request.Dni,
+            request.Telefono,
+            request.Email,
+            request.Art,
+            request.NumeroSiniestro);
+        _db.Add(created);
+        await _db.SaveChangesAsync(ct);
+        return new CreatePacienteResult(true, await GetAsync(created.Id, ct));
+    }
+
     public async Task<PacienteDto> UpdateAsync(Guid id, UpdatePacienteRequest request, CancellationToken ct)
     {
         var entity = await _db.Pacientes.FirstOrDefaultAsync(x => x.Id == id, ct)
@@ -216,6 +240,8 @@ public sealed record CreatePrestacionRequest(
     ChronicPeriodicity? Periodicity = null,
     int? IntervalDays = null,
     DateTime? ScheduleStartUtc = null);
+
+public sealed record CreatePacienteResult(bool Created, PacienteDto Paciente);
 
 public sealed record UpdatePacienteRequest(
     string Nombre,

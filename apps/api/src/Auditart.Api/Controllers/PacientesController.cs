@@ -31,6 +31,24 @@ public class PacientesController : ControllerBase
         }
     }
 
+    [HttpPost]
+    public async Task<ActionResult<CreatePacienteResult>> Create(
+        [FromBody] UpdatePacienteRequest request,
+        CancellationToken ct)
+    {
+        if (!PermissionService.CanCreatePacientes(GetRole()))
+            return Forbid();
+
+        try
+        {
+            return Ok(await _service.CreateAsync(request, ct));
+        }
+        catch (Exception ex) when (ex is ArgumentException or Domain.Exceptions.DomainException)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
     [HttpPut("{id:guid}")]
     public async Task<ActionResult<PacienteDto>> Update(
         Guid id,

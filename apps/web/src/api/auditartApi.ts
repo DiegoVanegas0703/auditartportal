@@ -1256,6 +1256,25 @@ export interface PacienteDto {
 
 export const pacientesApi = {
   get: (id: string) => apiFetch<PacienteDto>(`/api/pacientes/${id}`),
+  create: (body: {
+    nombre: string
+    dni: string
+    telefono?: string
+    email?: string
+    art?: string
+    numeroSiniestro?: string
+  }) =>
+    apiFetch<{ created: boolean; paciente: PacienteDto }>('/api/pacientes', {
+      method: 'POST',
+      body: JSON.stringify({
+        nombre: body.nombre,
+        dni: body.dni,
+        telefono: body.telefono || null,
+        email: body.email || null,
+        art: body.art || null,
+        numeroSiniestro: body.numeroSiniestro || null,
+      }),
+    }),
   update: (
     id: string,
     body: {
