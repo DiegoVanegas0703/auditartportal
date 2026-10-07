@@ -28,6 +28,7 @@ import { PrestadorDetailModal } from '../components/prestadores/PrestadorDetailM
 import { StatusBadge } from '../components/ui/StatusBadge'
 import { useAuth } from '../context/useAuth'
 import { useAudits } from '../context/useAudits'
+import { FEATURES } from '../config/features'
 import {
   CHRONIC_PERIODICITY_LABELS,
   QUEUE_LABELS,
@@ -1344,13 +1345,15 @@ export function AuditDetailPage() {
 
         {/* Actions */}
         <div className="flex flex-wrap gap-3 border-t border-gray-100 bg-gray-50/50 p-6">
-          <button
-            onClick={() => showToast('WhatsApp enviado al paciente (simulado)')}
-            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-green-500/25 transition-all hover:shadow-lg"
-          >
-            <MessageCircle size={16} />
-            Avisar paciente (WS)
-          </button>
+          {FEATURES.whatsapp && (
+            <button
+              onClick={() => showToast('WhatsApp enviado al paciente (simulado)')}
+              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-green-500/25 transition-all hover:shadow-lg"
+            >
+              <MessageCircle size={16} />
+              Avisar paciente (WS)
+            </button>
+          )}
           <label
             className={`flex cursor-pointer items-center gap-2 rounded-xl border-2 border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-auditart-navy transition-all hover:border-auditart-blue hover:shadow-sm ${
               uploadBusy ? 'pointer-events-none opacity-50' : ''

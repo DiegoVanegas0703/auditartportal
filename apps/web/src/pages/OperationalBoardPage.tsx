@@ -7,6 +7,7 @@ import { StatusBadge } from '../components/ui/StatusBadge'
 import { useAuth } from '../context/useAuth'
 import { filterAuditsForUser, getUrgencyColor } from '../utils/auditHelpers'
 import { useAudits } from '../context/useAudits'
+import { FEATURES } from '../config/features'
 import {
   QUEUE_LABELS,
   SERVICE_LABELS,
@@ -310,15 +311,17 @@ export function OperationalBoardPage() {
         )}
       </div>
 
-      <div className="mt-5 flex items-center gap-3 rounded-2xl bg-gradient-to-r from-green-50 to-emerald-50 p-4 ring-1 ring-green-200/50">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-green-100">
-          <MessageCircle size={16} className="text-green-600" />
+      {FEATURES.whatsapp && (
+        <div className="mt-5 flex items-center gap-3 rounded-2xl bg-gradient-to-r from-green-50 to-emerald-50 p-4 ring-1 ring-green-200/50">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-green-100">
+            <MessageCircle size={16} className="text-green-600" />
+          </div>
+          <p className="text-sm text-green-800">
+            <span className="font-semibold">WhatsApp simulado</span> — En producción se integrará
+            WhatsApp Cloud API para alertas de urgencia, turnos y SLA.
+          </p>
         </div>
-        <p className="text-sm text-green-800">
-          <span className="font-semibold">WhatsApp simulado</span> — En producción se integrará
-          WhatsApp Cloud API para alertas de urgencia, turnos y SLA.
-        </p>
-      </div>
+      )}
 
       {detailPrestadorId && (
         <PrestadorDetailModal

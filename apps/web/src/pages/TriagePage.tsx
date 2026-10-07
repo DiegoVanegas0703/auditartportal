@@ -58,7 +58,7 @@ const QUEUES: { key: AuditQueue; icon: string; desc: string }[] = [
 ]
 
 export function TriagePage() {
-  const { assignRequestToQueue, seedDemoEmails, syncGmail, refresh } = useAudits()
+  const { assignRequestToQueue, syncGmail, refresh } = useAudits()
   const [requests, setRequests] = useState<EmailRequestSummary[]>([])
   const [detail, setDetail] = useState<EmailRequestDetail | null>(null)
   const [page, setPage] = useState(1)
@@ -224,22 +224,6 @@ export function TriagePage() {
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id],
     )
-  }
-
-  const handleSeed = async () => {
-    setBusy(true)
-    setError(null)
-    try {
-      await seedDemoEmails()
-      await triageApi.backfillRequests()
-      await loadPage()
-      setToast('Emails de demo cargados y agrupados')
-      setTimeout(() => setToast(''), 3000)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudieron crear emails demo')
-    } finally {
-      setBusy(false)
-    }
   }
 
   const handleSync = async () => {
@@ -485,15 +469,6 @@ export function TriagePage() {
               className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-auditart-navy shadow-sm ring-1 ring-gray-200 hover:bg-gray-50 disabled:opacity-50"
             >
               Agrupar existentes
-            </button>
-            <button
-              type="button"
-              onClick={() => void handleSeed()}
-              disabled={busy}
-              className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-auditart-navy shadow-sm ring-1 ring-gray-200 hover:bg-gray-50 disabled:opacity-50"
-            >
-              <Sparkles size={16} className="text-auditart-blue" />
-              Demo
             </button>
             <div className="flex items-center gap-2 rounded-full bg-auditart-blue/8 px-4 py-2 text-sm font-semibold text-auditart-blue ring-1 ring-auditart-blue/15">
               <Mail size={16} />
