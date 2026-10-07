@@ -40,9 +40,12 @@ import {
 } from '../types'
 import { formatDateTime, formatCurrency } from '../utils/format'
 
-/** 50 = +50% (base×1.5), 100 = +100% (base×2). No es % DEL precio. */
+/** Debe coincidir con AuditService.FactorArtEspecialista en la API. */
+const FACTOR_ART_ESPECIALISTA = 0.035
+
+/** Total a cobrar ART = valor especialista × (1,5 si +50% | 2 si +100%) × 0,035. */
 function conciliadoEspecialista(base: number, pct: 50 | 100): number {
-  return Math.round(base * (1 + pct / 100) * 100) / 100
+  return Math.round(base * (1 + pct / 100) * FACTOR_ART_ESPECIALISTA * 100) / 100
 }
 
 const TRANSITIONS: Record<
@@ -114,6 +117,7 @@ export function AuditDetailPage() {
   const [azulBusy, setAzulBusy] = useState(false)
   const [azulError, setAzulError] = useState<string | null>(null)
   const [tardiaBusy, setTardiaBusy] = useState(false)
+  const [presupuestoBusy, setPresupuestoBusy] = useState(false)
   const [detailPrestadorId, setDetailPrestadorId] = useState<string | null>(null)
   const [serviceAttachments, setServiceAttachments] = useState<ServiceAttachmentDto[]>([])
   const [uploadBusy, setUploadBusy] = useState(false)
@@ -440,6 +444,21 @@ export function AuditDetailPage() {
     }
   }
 
+  const togglePresupuestoEnviado = async () => {
+    setPresupuestoBusy(true)
+    try {
+      const next = !audit.presupuestoEnviado
+      await servicesApi.updateFlags(audit.id, { presupuestoEnviado: next })
+      setFetchedAudit(mapService(await servicesApi.get(audit.id)))
+      await refresh()
+      showToast(next ? 'Presupuesto marcado como enviado a ART' : 'Presupuesto desmarcado')
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'No se pudo actualizar el presupuesto')
+    } finally {
+      setPresupuestoBusy(false)
+    }
+  }
+
   const markTardia = async () => {
     setTardiaBusy(true)
     try {
@@ -715,7 +734,7 @@ export function AuditDetailPage() {
               Negociar precios
             </button>
           )}
-          {(audit.status === 'amarillo' || audit.status === 'azul') && (
+          {audit.status !== 'celeste' && (
             <button
               type="button"
               onClick={() => {
@@ -881,10 +900,15 @@ export function AuditDetailPage() {
             Checklist documentación
           </h3>
           <p className="mb-3 text-xs text-auditart-muted">
-            Por ahora solo informativo: se marcará automáticamente según el avance del caso.
+            Hacé clic en “Presupuesto enviado a ART” para marcarlo o desmarcarlo.
           </p>
           <div className="flex flex-wrap gap-3">
-            <CheckBadge active={audit.presupuestoEnviado} label="Presupuesto enviado a ART" />
+            <CheckBadge
+              active={audit.presupuestoEnviado}
+              label="Presupuesto enviado a ART"
+              busy={presupuestoBusy}
+              onToggle={() => void togglePresupuestoEnviado()}
+            />
             <CheckBadge
               active={
                 audit.autorizacionART ||
@@ -895,7 +919,7 @@ export function AuditDetailPage() {
             />
             <CheckBadge active={audit.autofisica} label="Autofísica cargada" />
           </div>
-          {(audit.status === 'amarillo' || audit.status === 'azul') && (
+          {audit.status !== 'celeste' && (
             <button
               type="button"
               className="mt-4 text-sm font-semibold text-auditart-blue hover:underline"
@@ -1032,7 +1056,7 @@ export function AuditDetailPage() {
                     }`}
                   >
                     <p className="text-lg font-extrabold text-emerald-800">+50%</p>
-                    <p className="mt-0.5 text-xs text-auditart-muted">50% más · base × 1.5</p>
+                    <p className="mt-0.5 text-xs text-auditart-muted">valor × 1,5 × 0,035</p>
                     {catalogBaseValor != null && (
                       <p className="mt-2 text-sm font-semibold text-emerald-800">
                         {formatCurrency(catalogBaseValor)} →{' '}
@@ -1050,7 +1074,7 @@ export function AuditDetailPage() {
                     }`}
                   >
                     <p className="text-lg font-extrabold text-emerald-800">+100%</p>
-                    <p className="mt-0.5 text-xs text-auditart-muted">100% más · base × 2</p>
+                    <p className="mt-0.5 text-xs text-auditart-muted">valor × 2 × 0,035</p>
                     {catalogBaseValor != null && (
                       <p className="mt-2 text-sm font-semibold text-emerald-800">
                         {formatCurrency(catalogBaseValor)} →{' '}
@@ -1130,12 +1154,12 @@ export function AuditDetailPage() {
 
               {precioTipo === 'especialista' && catalogBaseValor != null && (
                 <div className="mt-4 rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-900 ring-1 ring-emerald-200">
-                  <span className="font-semibold">Resumen: </span>
-                  {formatCurrency(catalogBaseValor)} + {pctEspecialista}% ={' '}
+                  <span className="font-semibold">Total a cobrar ART: </span>
+                  {formatCurrency(catalogBaseValor)} × {pctEspecialista === 50 ? '1,5' : '2'} ×{' '}
+                  0,035 ={' '}
                   <span className="font-extrabold">
                     {formatCurrency(conciliadoEspecialista(catalogBaseValor, pctEspecialista))}
-                  </span>{' '}
-                  ART
+                  </span>
                 </div>
               )}
 
@@ -1583,17 +1607,47 @@ function InfoRow({
   )
 }
 
-function CheckBadge({ active, label }: { active: boolean; label: string }) {
+function CheckBadge({
+  active,
+  label,
+  busy,
+  onToggle,
+}: {
+  active: boolean
+  label: string
+  busy?: boolean
+  onToggle?: () => void
+}) {
+  const className = `flex items-center gap-2.5 rounded-xl border-2 px-4 py-2.5 text-sm font-semibold ${
+    active
+      ? 'border-green-200 bg-green-50 text-green-700 shadow-sm'
+      : 'border-gray-200 bg-white text-auditart-gray'
+  }`
+  const icon = busy ? (
+    <Loader2 size={16} className="animate-spin text-auditart-muted" />
+  ) : (
+    <CheckCircle2 size={16} className={active ? 'text-green-500' : 'text-gray-300'} />
+  )
+
+  if (!onToggle) {
+    return (
+      <div className={className}>
+        {icon}
+        {label}
+      </div>
+    )
+  }
+
   return (
-    <div
-      className={`flex items-center gap-2.5 rounded-xl border-2 px-4 py-2.5 text-sm font-semibold ${
-        active
-          ? 'border-green-200 bg-green-50 text-green-700 shadow-sm'
-          : 'border-gray-200 bg-white text-auditart-gray'
-      }`}
+    <button
+      type="button"
+      onClick={onToggle}
+      disabled={busy}
+      aria-pressed={active}
+      className={`${className} cursor-pointer transition-colors hover:border-green-300 disabled:opacity-60`}
     >
-      <CheckCircle2 size={16} className={active ? 'text-green-500' : 'text-gray-300'} />
+      {icon}
       {label}
-    </div>
+    </button>
   )
 }

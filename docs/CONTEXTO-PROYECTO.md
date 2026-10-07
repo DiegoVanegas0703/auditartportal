@@ -112,8 +112,11 @@ Rojo → Amarillo → Azul | Verde → Celeste
 - Operador elige **Médico auditor** o **Especialista**.
 - Catálogo `/precios` (Admin / Jefatura / Facturación).
 - Auditor → precios filtrados por ART del caso.
-- Especialista → catálogo global; cotización ART = base **+50%** (×1,5) o **+100%** (×2).  
-  Ejemplo: base 100 → 150 (+50%) o 200 (+100%).
+- Especialista → catálogo global; **Total a cobrar ART = valor especialista × 1,5 (+50%) o × 2 (+100%) × 0,035**.  
+  Ejemplo: valor 100.000 → 100.000 × 1,5 × 0,035 = 5.250 (o × 2 × 0,035 = 7.000).  
+  Factor único: `AuditService.FactorArtEspecialista` (API) y `FACTOR_ART_ESPECIALISTA` (front).
+- “Presupuesto enviado a ART” se marca/desmarca con clic en el detalle.
+- La autorización se puede cargar en cualquier estado salvo Celeste (incluido Rojo).
 - UI: modal “Negociar precios” + detalle en acordeones (menos scroll).
 
 ### Doctores

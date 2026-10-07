@@ -553,7 +553,7 @@ public class ServicesController : ControllerBase
                 if (!valorConciliado.HasValue)
                 {
                     valorConciliado = request.TipoProfesional == TipoProfesional.Especialista && pct.HasValue
-                        ? Math.Round(precio.Valor * (1m + pct.Value / 100m), 2, MidpointRounding.AwayFromZero)
+                        ? AuditService.CalcularTotalArtEspecialista(precio.Valor, pct.Value)
                         : precio.Valor;
                 }
             }

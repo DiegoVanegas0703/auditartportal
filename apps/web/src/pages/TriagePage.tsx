@@ -49,6 +49,8 @@ const URGENCY_LABELS: Record<UrgencyLevel, string> = {
   critica: 'Crítica',
 }
 
+const TRIAGE_AUTO_REFRESH_MS = 60_000
+
 const QUEUES: { key: AuditQueue; icon: string; desc: string }[] = [
   { key: 'general', icon: '👥', desc: 'Operadores generales' },
   { key: 'telemedicina', icon: '🩺', desc: 'Cola telemedicina' },
@@ -93,9 +95,12 @@ export function TriagePage() {
   const [parseBusy, setParseBusy] = useState(false)
   const [selectedPdfAttachmentId, setSelectedPdfAttachmentId] = useState('')
 
-  const loadPage = useCallback(async () => {
-    setListLoading(true)
-    setError(null)
+  const loadPage = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent ?? false
+    if (!silent) {
+      setListLoading(true)
+      setError(null)
+    }
     try {
       const result = await triageApi.listRequests(
         page,
@@ -111,9 +116,10 @@ export function TriagePage() {
       setIgnoredCount(result.ignoredCount)
       setAvailableTags(result.availableTags)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudieron cargar los requerimientos')
+      if (!silent)
+        setError(e instanceof Error ? e.message : 'No se pudieron cargar los requerimientos')
     } finally {
-      setListLoading(false)
+      if (!silent) setListLoading(false)
     }
   }, [page, view, tagFilter])
 
@@ -137,6 +143,13 @@ export function TriagePage() {
 
   useEffect(() => {
     void loadPage()
+  }, [loadPage])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void loadPage({ silent: true })
+    }, TRIAGE_AUTO_REFRESH_MS)
+    return () => window.clearInterval(timer)
   }, [loadPage])
 
   useEffect(() => {

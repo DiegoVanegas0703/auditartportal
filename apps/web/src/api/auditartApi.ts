@@ -1143,6 +1143,8 @@ export type PrestadorUpsertBody = {
   formaPago?: string | null
   observaciones?: string | null
   isActive?: boolean
+  requierePagoAnticipado?: boolean | null
+  valorConsulta?: number | null
 }
 
 export interface PrestadorPageDto {

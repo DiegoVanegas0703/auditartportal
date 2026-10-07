@@ -323,7 +323,7 @@ export function PrestadoresPage() {
         </form>
       )}
 
-      {loading ? (
+      {loading && items.length === 0 ? (
         <div className="flex items-center gap-2 text-sm text-auditart-gray">
           <Loader2 size={16} className="animate-spin" /> Cargando…
         </div>
@@ -359,6 +359,13 @@ export function PrestadoresPage() {
                       className="text-left font-semibold text-auditart-blue hover:underline"
                     >
                       {p.nombre}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedId(p.id)}
+                      className="mt-1 block text-[11px] font-semibold text-auditart-muted hover:text-auditart-blue hover:underline"
+                    >
+                      Ver / editar
                     </button>
                   </td>
                   <td className="px-3 py-3">{p.provincia || '—'}</td>
@@ -448,6 +455,7 @@ export function PrestadoresPage() {
         <PrestadorDetailModal
           prestadorId={selectedId}
           allowFirmaUpload
+          allowEdit
           onClose={() => setSelectedId(null)}
           onUpdated={(updated) => {
             setItems((prev) => prev.map((p) => (p.id === updated.id ? updated : p)))

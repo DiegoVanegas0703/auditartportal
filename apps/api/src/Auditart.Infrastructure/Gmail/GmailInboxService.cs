@@ -436,13 +436,20 @@ public sealed class GmailInboxService : IGmailInboxService, IDisposable
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(part.Body?.Data))
+        var isPlain = string.Equals(part.MimeType, "text/plain", StringComparison.OrdinalIgnoreCase);
+        var isHtml = string.Equals(part.MimeType, "text/html", StringComparison.OrdinalIgnoreCase);
+        if (!isPlain && !isHtml)
             return;
 
-        var text = Encoding.UTF8.GetString(DecodeBase64Url(part.Body.Data));
-        if (string.Equals(part.MimeType, "text/plain", StringComparison.OrdinalIgnoreCase))
+        // Gmail omite body.data en partes grandes y solo envía attachmentId.
+        var bytes = await ReadAttachmentContentAsync(messageId, part, cancellationToken);
+        if (bytes.Length == 0)
+            return;
+
+        var text = Encoding.UTF8.GetString(bytes);
+        if (isPlain)
             plainBody.AppendLine(text);
-        else if (string.Equals(part.MimeType, "text/html", StringComparison.OrdinalIgnoreCase))
+        else
             htmlBody.AppendLine(text);
     }
 
