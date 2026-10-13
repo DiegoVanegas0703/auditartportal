@@ -16,10 +16,10 @@ public class StubGmailInboxService : IGmailInboxService
         _logger = logger;
     }
 
-    public Task<IReadOnlyList<GmailMessageDto>> FetchUnreadAsync(CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<string>> ListUnreadIdsAsync(CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("StubGmail: FetchUnread (sin integración aún). Cuenta objetivo: dvelopmentcode@gmail.com");
-        return Task.FromResult<IReadOnlyList<GmailMessageDto>>(Array.Empty<GmailMessageDto>());
+        _logger.LogInformation("StubGmail: ListUnreadIds (sin integración aún).");
+        return Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
     }
 
     public Task<GmailMessageDto?> GetMessageAsync(string messageId, CancellationToken cancellationToken = default)

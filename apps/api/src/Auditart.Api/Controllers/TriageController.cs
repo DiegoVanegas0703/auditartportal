@@ -120,9 +120,16 @@ public class TriageController : ControllerBase
     {
         if (!IsJefaturaOrAdmin()) return Forbid();
 
+        if (GmailIngestionService.IsSyncRunning)
+            return Conflict(new
+            {
+                error = "Ya hay una sincronización de Gmail en curso (automática). Los correos van a aparecer en unos minutos."
+            });
+
         try
         {
-            return Ok(await _gmailIngestion.SyncUnreadAsync(ct));
+            // Sin el token del request: si el navegador corta, lo ya iniciado termina igual.
+            return Ok(await _gmailIngestion.SyncUnreadAsync(CancellationToken.None));
         }
         catch (InvalidOperationException ex)
         {

@@ -239,12 +239,16 @@ export function TriagePage() {
           `Se importaron ${result.inserted} mensaje(s) y fallaron ${result.failed}. ${result.errors[0] ?? ''}`,
         )
       } else {
-        setToast(
+        const imported =
           result.inserted > 0
             ? `${result.inserted} mensaje(s) importado(s) desde Gmail`
-            : 'No hay mensajes nuevos en Gmail',
+            : 'No hay mensajes nuevos en Gmail'
+        setToast(
+          result.hasMore
+            ? `${imported}. Quedan más correos: se siguen importando solos en segundo plano.`
+            : imported,
         )
-        setTimeout(() => setToast(''), 4000)
+        setTimeout(() => setToast(''), result.hasMore ? 8000 : 4000)
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo sincronizar Gmail')

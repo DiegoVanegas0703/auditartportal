@@ -58,7 +58,7 @@ public sealed class GmailInboxService : IGmailInboxService, IDisposable
         });
     }
 
-    public async Task<IReadOnlyList<GmailMessageDto>> FetchUnreadAsync(
+    public async Task<IReadOnlyList<string>> ListUnreadIdsAsync(
         CancellationToken cancellationToken = default)
     {
         var pageSize = Math.Clamp(_options.MaxResults, 1, 100);
@@ -83,15 +83,7 @@ public sealed class GmailInboxService : IGmailInboxService, IDisposable
         }
         while (!string.IsNullOrEmpty(pageToken) && messageIds.Count < 500);
 
-        var messages = new List<GmailMessageDto>(messageIds.Count);
-        foreach (var messageId in messageIds)
-        {
-            var dto = await GetMessageAsync(messageId, cancellationToken);
-            if (dto is not null)
-                messages.Add(dto);
-        }
-
-        return messages;
+        return messageIds;
     }
 
     public async Task<GmailMessageDto?> GetMessageAsync(

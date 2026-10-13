@@ -58,7 +58,7 @@ public sealed record ObjectDownload(Stream Content, string? ContentType);
 
 public interface IGmailInboxService
 {
-    Task<IReadOnlyList<GmailMessageDto>> FetchUnreadAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<string>> ListUnreadIdsAsync(CancellationToken cancellationToken = default);
     Task<GmailMessageDto?> GetMessageAsync(string messageId, CancellationToken cancellationToken = default);
     Task<string?> GetProfileHistoryIdAsync(CancellationToken cancellationToken = default);
 

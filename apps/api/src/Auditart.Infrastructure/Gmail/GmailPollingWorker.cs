@@ -48,11 +48,11 @@ public sealed class GmailPollingWorker : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            await SyncAsync(stoppingToken);
+            var hasMore = await SyncAsync(stoppingToken);
 
             try
             {
-                await Task.Delay(interval, stoppingToken);
+                await Task.Delay(hasMore ? TimeSpan.FromSeconds(10) : interval, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -61,7 +61,7 @@ public sealed class GmailPollingWorker : BackgroundService
         }
     }
 
-    private async Task SyncAsync(CancellationToken cancellationToken)
+    private async Task<bool> SyncAsync(CancellationToken cancellationToken)
     {
         try
         {
@@ -78,6 +78,9 @@ public sealed class GmailPollingWorker : BackgroundService
                 result.Failed);
             foreach (var error in result.Errors.Take(5))
                 _logger.LogWarning("Gmail sync error: {Error}", error);
+            if (result.HasMore)
+                _logger.LogInformation("Quedan correos pendientes; se continúa en 10 s.");
+            return result.HasMore;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -94,5 +97,7 @@ public sealed class GmailPollingWorker : BackgroundService
         {
             _logger.LogError(ex, "Falló la sincronización automática de Gmail.");
         }
+
+        return false;
     }
 }

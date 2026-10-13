@@ -152,6 +152,7 @@ export interface GmailSyncResult {
   skipped: number
   failed: number
   errors: string[]
+  hasMore?: boolean
 }
 
 /** Usuarios de prueba (solo referencia local) */

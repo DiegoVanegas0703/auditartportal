@@ -22,7 +22,9 @@ public sealed record GmailSyncResult(
 
     int Failed,
 
-    IReadOnlyList<string> Errors);
+    IReadOnlyList<string> Errors,
+
+    bool HasMore = false);
 
 
 
@@ -31,6 +33,11 @@ public sealed class GmailIngestionService
 {
 
     private static readonly SemaphoreSlim SyncLock = new(1, 1);
+
+    // Acota cada ronda para que la sincronización manual termine antes del timeout del proxy (120 s).
+    private const int MaxNewMessagesPerRun = 25;
+
+    public static bool IsSyncRunning => SyncLock.CurrentCount == 0;
 
 
 
@@ -78,6 +85,8 @@ public sealed class GmailIngestionService
 
             var skipped = 0;
 
+            var hasMore = false;
+
             var errors = new List<string>();
 
 
@@ -94,13 +103,15 @@ public sealed class GmailIngestionService
 
                 skipped += result.Skipped;
 
+                hasMore |= result.HasMore;
+
                 errors.AddRange(result.Errors);
 
             }
 
 
 
-            return new GmailSyncResult(fetched, inserted, skipped, errors.Count, errors);
+            return new GmailSyncResult(fetched, inserted, skipped, errors.Count, errors, hasMore);
 
         }
 
@@ -186,11 +197,9 @@ public sealed class GmailIngestionService
 
 
 
-        var unread = await gmail.FetchUnreadAsync(cancellationToken);
+        foreach (var id in await gmail.ListUnreadIdsAsync(cancellationToken))
 
-        foreach (var msg in unread)
-
-            messageIds.Add(msg.MessageId);
+            messageIds.Add(id);
 
 
 
@@ -201,6 +210,10 @@ public sealed class GmailIngestionService
         var errors = new List<string>();
 
         var fetched = messageIds.Count;
+
+        var processedNew = 0;
+
+        var hasMore = false;
 
 
 
@@ -230,9 +243,21 @@ public sealed class GmailIngestionService
 
 
 
-                var message = unread.FirstOrDefault(m => m.MessageId == messageId)
+                if (processedNew >= MaxNewMessagesPerRun)
 
-                    ?? await gmail.GetMessageAsync(messageId, cancellationToken);
+                {
+
+                    hasMore = true;
+
+                    break;
+
+                }
+
+                processedNew++;
+
+
+
+                var message = await gmail.GetMessageAsync(messageId, cancellationToken);
 
                 if (message is null)
 
@@ -274,17 +299,14 @@ public sealed class GmailIngestionService
 
 
 
-        await UpdateSyncStateAsync(gmail, mailbox, errors, cancellationToken);
-
-
-
-        if (!usedHistory && inserted == 0 && skipped == 0 && errors.Count == 0)
+        // Con pendientes no se avanza el historial: la próxima ronda retoma los mensajes que faltan.
+        if (!hasMore)
 
             await UpdateSyncStateAsync(gmail, mailbox, errors, cancellationToken);
 
 
 
-        return new GmailSyncResult(fetched, inserted, skipped, errors.Count, errors);
+        return new GmailSyncResult(fetched, inserted, skipped, errors.Count, errors, hasMore);
 
     }
 
