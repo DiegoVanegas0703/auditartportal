@@ -10,6 +10,7 @@ import { BillingPage } from './pages/BillingPage'
 import { ChangePasswordPage } from './pages/ChangePasswordPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
+import { MiCuentaPage } from './pages/MiCuentaPage'
 import { OperationalBoardPage } from './pages/OperationalBoardPage'
 import { PacientePage } from './pages/PacientePage'
 import { ReportsPage } from './pages/ReportsPage'
@@ -141,6 +142,7 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
+        <Route path="mi-cuenta" element={<MiCuentaPage />} />
         <Route path="servicio/:id" element={<AuditDetailPage />} />
         <Route
           path="pacientes/:id"

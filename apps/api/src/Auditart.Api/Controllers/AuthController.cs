@@ -61,6 +61,31 @@ public class AuthController : ControllerBase
         }
     }
 
+    [HttpPut("signature")]
+    [Authorize]
+    public async Task<ActionResult<AuthUserDto>> UpdateSignature(
+        [FromBody] UpdateSignatureRequest request,
+        CancellationToken ct)
+    {
+        var sub = User.FindFirst("sub")?.Value
+            ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!Guid.TryParse(sub, out var userId))
+            return Unauthorized();
+
+        try
+        {
+            return Ok(await _auth.UpdateSignatureAsync(userId, request.SignatureHtml, ct));
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
     [HttpPost("refresh")]
     [AllowAnonymous]
     public async Task<ActionResult<AuthTokensDto>> Refresh(

@@ -18,11 +18,7 @@ import {
   Undo2,
 } from 'lucide-react'
 import { useEffect, type ReactNode } from 'react'
-
-function htmlToPlainText(html: string): string {
-  const doc = new DOMParser().parseFromString(html, 'text/html')
-  return (doc.body.textContent ?? '').replace(/\u00a0/g, ' ').trim()
-}
+import { htmlToPlainText } from './signature'
 
 export function RichTextEditor({
   valueHtml,
@@ -53,7 +49,7 @@ export function RichTextEditor({
       const empty = ed.isEmpty
       onChange({
         html: empty ? '' : html,
-        text: empty ? '' : htmlToPlainText(html),
+        text: empty ? '' : ed.getText({ blockSeparator: '\n' }).trim() || htmlToPlainText(html),
       })
     },
     editorProps: {

@@ -120,5 +120,19 @@ public class AuthService
             PermissionService.SeesAllQueues(user.Role),
             PermissionService.CanManageUsers(user.Role),
             PermissionService.CanViewReports(user.Role),
-            PermissionService.CanManagePrecios(user.Role)));
+            PermissionService.CanManagePrecios(user.Role)),
+        user.EmailSignatureHtml);
+
+    public async Task<AuthUserDto> UpdateSignatureAsync(Guid userId, string? signatureHtml, CancellationToken ct = default)
+    {
+        if (signatureHtml is { Length: > 20000 })
+            throw new InvalidOperationException("La firma es demasiado larga.");
+
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct)
+            ?? throw new UnauthorizedAccessException("Usuario no encontrado.");
+
+        user.UpdateEmailSignature(signatureHtml);
+        await _db.SaveChangesAsync(ct);
+        return MapUser(user);
+    }
 }

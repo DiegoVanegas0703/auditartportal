@@ -23,6 +23,8 @@ import {
 import { EmailAttachmentsList } from '../components/email/EmailAttachmentsList'
 import { EmailReplyComposer } from '../components/email/EmailReplyComposer'
 import { RichTextEditor } from '../components/email/RichTextEditor'
+import { SignatureHint } from '../components/email/SignatureHint'
+import { initialBodyWithSignature, isBodyEmpty } from '../components/email/signature'
 import { EmailTimeline } from '../components/email/EmailTimeline'
 import { PrestadorDetailModal } from '../components/prestadores/PrestadorDetailModal'
 import { StatusBadge } from '../components/ui/StatusBadge'
@@ -85,7 +87,8 @@ const TRANSITIONS: Record<
 
 export function AuditDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const { permissions } = useAuth()
+  const { permissions, user } = useAuth()
+  const emailSignature = user?.emailSignatureHtml ?? ''
   const { audits, updateAuditStatus, refresh } = useAudits()
   const [toast, setToast] = useState('')
   const [correspondence, setCorrespondence] = useState<EmailRequestDetail | null>(null)
@@ -95,8 +98,12 @@ export function AuditDetailPage() {
   const [composeTo, setComposeTo] = useState('')
   const [composeCc, setComposeCc] = useState('')
   const [composeSubject, setComposeSubject] = useState('')
-  const [composeBodyHtml, setComposeBodyHtml] = useState('')
-  const [composeBodyText, setComposeBodyText] = useState('')
+  const [composeBodyHtml, setComposeBodyHtml] = useState(
+    () => initialBodyWithSignature(emailSignature).html,
+  )
+  const [composeBodyText, setComposeBodyText] = useState(
+    () => initialBodyWithSignature(emailSignature).text,
+  )
   const [composeBusy, setComposeBusy] = useState(false)
   const [composeFiles, setComposeFiles] = useState<File[]>([])
   const [composeSelectedIds, setComposeSelectedIds] = useState<string[]>([])
@@ -119,7 +126,7 @@ export function AuditDetailPage() {
   const [azulBusy, setAzulBusy] = useState(false)
   const [azulError, setAzulError] = useState<string | null>(null)
   const [tardiaBusy, setTardiaBusy] = useState(false)
-  const [presupuestoBusy, setPresupuestoBusy] = useState(false)
+  const [checklistBusy, setChecklistBusy] = useState<string | null>(null)
   const [detailPrestadorId, setDetailPrestadorId] = useState<string | null>(null)
   const [serviceAttachments, setServiceAttachments] = useState<ServiceAttachmentDto[]>([])
   const [uploadBusy, setUploadBusy] = useState(false)
@@ -446,18 +453,26 @@ export function AuditDetailPage() {
     }
   }
 
-  const togglePresupuestoEnviado = async () => {
-    setPresupuestoBusy(true)
+  const toggleChecklistFlag = async (
+    flag: 'presupuestoEnviado' | 'autorizacionArt' | 'autofisica',
+    label: string,
+  ) => {
+    const current = {
+      presupuestoEnviado: audit.presupuestoEnviado,
+      autorizacionArt: audit.autorizacionART,
+      autofisica: audit.autofisica,
+    }[flag]
+    setChecklistBusy(flag)
     try {
-      const next = !audit.presupuestoEnviado
-      await servicesApi.updateFlags(audit.id, { presupuestoEnviado: next })
+      const next = !current
+      await servicesApi.updateFlags(audit.id, { [flag]: next })
       setFetchedAudit(mapService(await servicesApi.get(audit.id)))
       await refresh()
-      showToast(next ? 'Presupuesto marcado como enviado a ART' : 'Presupuesto desmarcado')
+      showToast(next ? `${label}: marcado` : `${label}: desmarcado`)
     } catch (e) {
-      showToast(e instanceof Error ? e.message : 'No se pudo actualizar el presupuesto')
+      showToast(e instanceof Error ? e.message : `No se pudo actualizar "${label}"`)
     } finally {
-      setPresupuestoBusy(false)
+      setChecklistBusy(null)
     }
   }
 
@@ -477,7 +492,7 @@ export function AuditDetailPage() {
   const handleSendNewEmail = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!id) return
-    if (!composeBodyText.trim()) {
+    if (isBodyEmpty(composeBodyText, emailSignature)) {
       showToast('Escribí el cuerpo del mensaje')
       return
     }
@@ -504,8 +519,9 @@ export function AuditDetailPage() {
       setComposeTo('')
       setComposeCc('')
       setComposeSubject('')
-      setComposeBodyHtml('')
-      setComposeBodyText('')
+      const initialBody = initialBodyWithSignature(emailSignature)
+      setComposeBodyHtml(initialBody.html)
+      setComposeBodyText(initialBody.text)
       setComposeFiles([])
       setComposeSelectedIds([])
       await loadServiceAttachments(id)
@@ -902,24 +918,27 @@ export function AuditDetailPage() {
             Checklist documentación
           </h3>
           <p className="mb-3 text-xs text-auditart-muted">
-            Hacé clic en “Presupuesto enviado a ART” para marcarlo o desmarcarlo.
+            Hacé clic en cada ítem para marcarlo o desmarcarlo.
           </p>
           <div className="flex flex-wrap gap-3">
             <CheckBadge
               active={audit.presupuestoEnviado}
               label="Presupuesto enviado a ART"
-              busy={presupuestoBusy}
-              onToggle={() => void togglePresupuestoEnviado()}
+              busy={checklistBusy === 'presupuestoEnviado'}
+              onToggle={() => void toggleChecklistFlag('presupuestoEnviado', 'Presupuesto enviado a ART')}
             />
             <CheckBadge
-              active={
-                audit.autorizacionART ||
-                Boolean(audit.autorizacionCodigo) ||
-                Boolean(audit.autorizacionDocumentoAttachmentId)
-              }
+              active={audit.autorizacionART}
               label="Autorización ART"
+              busy={checklistBusy === 'autorizacionArt'}
+              onToggle={() => void toggleChecklistFlag('autorizacionArt', 'Autorización ART')}
             />
-            <CheckBadge active={audit.autofisica} label="Autofísica cargada" />
+            <CheckBadge
+              active={audit.autofisica}
+              label="Autofísica cargada"
+              busy={checklistBusy === 'autofisica'}
+              onToggle={() => void toggleChecklistFlag('autofisica', 'Autofísica cargada')}
+            />
           </div>
           {audit.status !== 'celeste' && (
             <button
@@ -1479,6 +1498,7 @@ export function AuditDetailPage() {
               }}
               placeholder="Cuerpo del mensaje"
             />
+            <SignatureHint hasSignature={!!emailSignature} />
 
             {(correspondence?.attachments.length ?? 0) > 0 && (
               <div className="rounded-xl border border-gray-200 bg-white p-3">

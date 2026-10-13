@@ -9,6 +9,7 @@ import {
   LogOut,
   Timer,
   Users,
+  UserCog,
   Stethoscope,
   CircleDollarSign,
 } from 'lucide-react'
@@ -111,15 +112,25 @@ export function Sidebar() {
       </div>
 
       <div className="relative z-10 mt-auto border-t border-white/8 p-4">
-        <div className="mb-3 flex items-center gap-3 rounded-xl bg-white/6 p-3">
+        <NavLink
+          to="/mi-cuenta"
+          title="Mi cuenta: firma y contraseña"
+          className={({ isActive }) =>
+            `mb-3 flex items-center gap-3 rounded-xl p-3 transition-all hover:bg-white/12 ${
+              isActive ? 'bg-white/14 ring-1 ring-white/20' : 'bg-white/6'
+            }`
+          }
+        >
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-auditart-blue-light to-auditart-blue text-sm font-bold shadow-md">
             {getInitials(user.name)}
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold">{user.name}</p>
-            <p className="truncate text-xs text-white/50">{ROLE_LABELS[user.role]}</p>
+            <p className="flex items-center gap-1 truncate text-xs text-white/50">
+              {ROLE_LABELS[user.role]} · <UserCog size={11} /> Mi cuenta
+            </p>
           </div>
-        </div>
+        </NavLink>
         <button
           onClick={() => void logout()}
           className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-white/50 transition-all hover:bg-white/8 hover:text-white"

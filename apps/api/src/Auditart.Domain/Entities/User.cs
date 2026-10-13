@@ -14,6 +14,7 @@ public class User : Entity
     public AuditQueue? DefaultQueue { get; private set; }
     public bool IsActive { get; private set; } = true;
     public DateTime? LastLoginAtUtc { get; private set; }
+    public string? EmailSignatureHtml { get; private set; }
 
     public ICollection<RefreshToken> RefreshTokens { get; private set; } = new List<RefreshToken>();
     public ICollection<AuditService> AssignedServices { get; private set; } = new List<AuditService>();
@@ -79,6 +80,12 @@ public class User : Entity
     {
         PasswordHash = newPasswordHash;
         MustChangePassword = false;
+        Touch();
+    }
+
+    public void UpdateEmailSignature(string? signatureHtml)
+    {
+        EmailSignatureHtml = string.IsNullOrWhiteSpace(signatureHtml) ? null : signatureHtml.Trim();
         Touch();
     }
 

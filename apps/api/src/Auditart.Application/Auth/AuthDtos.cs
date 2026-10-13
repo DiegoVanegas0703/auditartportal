@@ -9,7 +9,8 @@ public sealed record AuthUserDto(
     UserRole Role,
     AuditQueue? DefaultQueue,
     bool MustChangePassword,
-    AuthPermissionsDto Permissions);
+    AuthPermissionsDto Permissions,
+    string? EmailSignatureHtml);
 
 public sealed record AuthPermissionsDto(
     bool Triage,
@@ -29,3 +30,4 @@ public sealed record AuthTokensDto(
 public sealed record LoginRequest(string Email, string Password);
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 public sealed record RefreshRequest(string RefreshToken);
+public sealed record UpdateSignatureRequest(string? SignatureHtml);

@@ -1,7 +1,11 @@
 import { createContext } from 'react'
 import type { Permission, User } from '../types'
 
-type AuthUser = User & { permissions: Permission; mustChangePassword: boolean }
+type AuthUser = User & {
+  permissions: Permission
+  mustChangePassword: boolean
+  emailSignatureHtml: string
+}
 
 export interface AuthContextValue {
   user: AuthUser | null
@@ -13,6 +17,7 @@ export interface AuthContextValue {
   login: (email: string, password: string) => Promise<boolean>
   logout: () => Promise<void>
   completePasswordChange: () => void
+  updateSignature: (signatureHtml: string) => Promise<void>
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)

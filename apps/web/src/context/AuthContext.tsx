@@ -22,7 +22,11 @@ import { AuthContext, type AuthContextValue } from './auth-context'
 
 
 
-type AuthUser = User & { permissions: Permission; mustChangePassword: boolean }
+type AuthUser = User & {
+  permissions: Permission
+  mustChangePassword: boolean
+  emailSignatureHtml: string
+}
 
 
 
@@ -52,7 +56,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const mapped = mapAuthUser(dto)
 
-    setUser({ ...mapped, mustChangePassword: dto.mustChangePassword })
+    setUser({
+      ...mapped,
+      mustChangePassword: dto.mustChangePassword,
+      emailSignatureHtml: dto.emailSignatureHtml ?? '',
+    })
 
   }, [])
 
@@ -136,6 +144,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 
 
+  const updateSignature = useCallback(
+    async (signatureHtml: string) => {
+      const dto = await authApi.updateSignature(signatureHtml.trim() ? signatureHtml : null)
+      applyAuthUser(dto)
+    },
+    [applyAuthUser],
+  )
+
   const permissions = useMemo(
 
     () => user?.permissions ?? emptyPermissions,
@@ -168,9 +184,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       completePasswordChange,
 
+      updateSignature,
+
     }),
 
-    [user, permissions, loading, error, login, logout, completePasswordChange],
+    [user, permissions, loading, error, login, logout, completePasswordChange, updateSignature],
 
   )
 

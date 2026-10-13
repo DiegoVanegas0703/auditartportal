@@ -34,6 +34,7 @@ export interface AuthUserDto {
     reports: boolean
     precios: boolean
   }
+  emailSignatureHtml?: string | null
 }
 
 export interface AuthTokensDto {
@@ -472,6 +473,13 @@ export const authApi = {
 
   async me(): Promise<AuthUserDto> {
     return apiFetch<AuthUserDto>('/api/auth/me')
+  },
+
+  async updateSignature(signatureHtml: string | null): Promise<AuthUserDto> {
+    return apiFetch<AuthUserDto>('/api/auth/signature', {
+      method: 'PUT',
+      body: JSON.stringify({ signatureHtml }),
+    })
   },
 
   async logout(refreshToken: string | null) {

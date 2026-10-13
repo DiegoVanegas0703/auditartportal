@@ -1,7 +1,10 @@
 import { Loader2, Paperclip, Send, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { useAuth } from '../../context/useAuth'
 import type { ReplyDefaults } from '../../types'
 import { RichTextEditor } from './RichTextEditor'
+import { SignatureHint } from './SignatureHint'
+import { initialBodyWithSignature, isBodyEmpty } from './signature'
 
 function parseAddresses(value: string): string[] {
   return value
@@ -28,21 +31,28 @@ export function EmailReplyComposer({
     files?: File[]
   }) => Promise<void>
 }) {
+  const { user } = useAuth()
+  const signature = user?.emailSignatureHtml ?? ''
   const [to, setTo] = useState(defaults.to.join(', '))
   const [cc, setCc] = useState(defaults.cc.join(', '))
-  const [bodyHtml, setBodyHtml] = useState('')
-  const [bodyText, setBodyText] = useState('')
+  const [bodyHtml, setBodyHtml] = useState(() => initialBodyWithSignature(signature).html)
+  const [bodyText, setBodyText] = useState(() => initialBodyWithSignature(signature).text)
   const [files, setFiles] = useState<File[]>([])
   const [error, setError] = useState<string | null>(null)
+
+  const resetBody = useCallback(() => {
+    const initial = initialBodyWithSignature(signature)
+    setBodyHtml(initial.html)
+    setBodyText(initial.text)
+  }, [signature])
 
   useEffect(() => {
     setTo(defaults.to.join(', '))
     setCc(defaults.cc.join(', '))
-    setBodyHtml('')
-    setBodyText('')
+    resetBody()
     setFiles([])
     setError(null)
-  }, [defaults.to, defaults.cc, defaults.subject])
+  }, [defaults.to, defaults.cc, defaults.subject, resetBody])
 
   const addFiles = (list: FileList | null) => {
     if (!list?.length) return
@@ -68,7 +78,7 @@ export function EmailReplyComposer({
       setError('Indicá al menos un destinatario.')
       return
     }
-    if (!bodyText.trim()) {
+    if (isBodyEmpty(bodyText, signature)) {
       setError('Escribí el cuerpo de la respuesta.')
       return
     }
@@ -81,8 +91,7 @@ export function EmailReplyComposer({
         bodyHtml: bodyHtml || undefined,
         files: files.length ? files : undefined,
       })
-      setBodyHtml('')
-      setBodyText('')
+      resetBody()
       setFiles([])
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo encolar la respuesta')
@@ -125,6 +134,7 @@ export function EmailReplyComposer({
             }}
             placeholder="Escribí la respuesta…"
           />
+          <SignatureHint hasSignature={!!signature} />
         </div>
         <div>
           <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-auditart-blue hover:underline">

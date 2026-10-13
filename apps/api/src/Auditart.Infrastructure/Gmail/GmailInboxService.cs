@@ -16,6 +16,10 @@ namespace Auditart.Infrastructure.Gmail;
 
 public sealed class GmailInboxService : IGmailInboxService, IDisposable
 {
+    // Cada guardado de borrador crea un mensaje nuevo en el historial de Gmail.
+    private static readonly HashSet<string> IgnoredHistoryLabels =
+        new(StringComparer.OrdinalIgnoreCase) { "DRAFT", "SPAM", "TRASH", "CHAT" };
+
     private readonly GmailOptions _options;
     private readonly GmailService _gmail;
     private readonly ConcurrentDictionary<string, string> _labelIdsByName =
@@ -147,8 +151,11 @@ public sealed class GmailInboxService : IGmailInboxService, IDisposable
                         if (entry.MessagesAdded is null) continue;
                         foreach (var added in entry.MessagesAdded)
                         {
-                            if (!string.IsNullOrWhiteSpace(added.Message?.Id))
-                                messageIds.Add(added.Message.Id);
+                            if (string.IsNullOrWhiteSpace(added.Message?.Id))
+                                continue;
+                            if (added.Message.LabelIds?.Any(IgnoredHistoryLabels.Contains) == true)
+                                continue;
+                            messageIds.Add(added.Message.Id);
                         }
                     }
                 }
