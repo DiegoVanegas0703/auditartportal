@@ -91,6 +91,17 @@ public sealed class TriageRequestsController : ControllerBase
         }
     }
 
+    [HttpPost("ignore-before")]
+    public async Task<IActionResult> IgnoreBefore([FromBody] IgnoreBeforeBody body, CancellationToken ct)
+    {
+        if (!IsJefaturaOrAdmin()) return Forbid();
+        var ignored = await _conversations.IgnorePendingBeforeAsync(
+            DateTime.SpecifyKind(body.Before, DateTimeKind.Utc),
+            GetUserId(),
+            ct);
+        return Ok(new { ignored });
+    }
+
     [HttpPost("{requestId:guid}/restore")]
     public async Task<IActionResult> Restore(Guid requestId, CancellationToken ct)
     {
@@ -224,6 +235,16 @@ public sealed class TriageRequestsController : ControllerBase
                 attachment?.Length,
                 ct);
 
+            if (!string.IsNullOrWhiteSpace(request.Domicilio) && service.PacienteId is Guid pacienteId)
+            {
+                var paciente = await _db.Pacientes.FirstOrDefaultAsync(p => p.Id == pacienteId, ct);
+                if (paciente is not null)
+                {
+                    paciente.UpdateContact(null, null, null, null, request.Domicilio);
+                    await _db.SaveChangesAsync(ct);
+                }
+            }
+
             var operadorName = await _db.Users
                 .Where(u => u.Id == service.OperadorId)
                 .Select(u => u.Name)
@@ -335,9 +356,12 @@ public sealed record AssignRequestBody(
     string? EmailPaciente = null,
     ServiceType? TipoServicio = null,
     string? Especialidad = null,
-    UrgencyLevel? Urgency = null);
+    UrgencyLevel? Urgency = null,
+    string? Domicilio = null);
 
 public sealed record ParseDenunciaBody(Guid? AttachmentId);
+
+public sealed record IgnoreBeforeBody(DateTime Before);
 
 public sealed class AssignRequestJson
 {
@@ -353,6 +377,7 @@ public sealed class AssignRequestJson
     public string? TipoServicio { get; set; }
     public string? Especialidad { get; set; }
     public string? Urgency { get; set; }
+    public string? Domicilio { get; set; }
 
     public static AssignRequestJson FromForm(IFormCollection form) => new()
     {
@@ -368,6 +393,7 @@ public sealed class AssignRequestJson
         TipoServicio = form["tipoServicio"],
         Especialidad = form["especialidad"],
         Urgency = form["urgency"],
+        Domicilio = form["domicilio"],
     };
 
     public AssignRequestBody ToBody() => new(
@@ -382,7 +408,8 @@ public sealed class AssignRequestJson
         EmailPaciente,
         string.IsNullOrWhiteSpace(TipoServicio) ? null : ParseEnum<ServiceType>(TipoServicio, nameof(TipoServicio)),
         Especialidad,
-        string.IsNullOrWhiteSpace(Urgency) ? null : ParseEnum<UrgencyLevel>(Urgency, nameof(Urgency)));
+        string.IsNullOrWhiteSpace(Urgency) ? null : ParseEnum<UrgencyLevel>(Urgency, nameof(Urgency)),
+        Domicilio);
 
     private static TEnum ParseEnum<TEnum>(string value, string fieldName)
         where TEnum : struct, Enum

@@ -1,7 +1,9 @@
-import { Loader2, X } from 'lucide-react'
+import { ExternalLink, Loader2, X } from 'lucide-react'
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { pacientesApi } from '../../api/auditartApi'
+import { Link, useNavigate } from 'react-router-dom'
+import { pacientesApi, type PacienteLookupDto } from '../../api/auditartApi'
+import { ArtSelect } from '../arts/ArtSelect'
+import { DniLookupField } from './DniLookupField'
 
 export function NuevoPacienteModal({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate()
@@ -11,8 +13,20 @@ export function NuevoPacienteModal({ onClose }: { onClose: () => void }) {
   const [numeroSiniestro, setNumeroSiniestro] = useState('')
   const [telefono, setTelefono] = useState('')
   const [email, setEmail] = useState('')
+  const [domicilio, setDomicilio] = useState('')
+  const [existente, setExistente] = useState<PacienteLookupDto | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const applyLookup = (p: PacienteLookupDto) => {
+    setExistente(p)
+    setNombre(p.nombre)
+    setArt(p.art ?? '')
+    setNumeroSiniestro(p.numeroSiniestro ?? '')
+    setTelefono(p.telefono ?? '')
+    setEmail(p.email ?? '')
+    setDomicilio(p.domicilio ?? '')
+  }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -30,6 +44,7 @@ export function NuevoPacienteModal({ onClose }: { onClose: () => void }) {
         numeroSiniestro: numeroSiniestro.trim() || undefined,
         telefono: telefono.trim() || undefined,
         email: email.trim() || undefined,
+        domicilio: domicilio.trim() || undefined,
       })
       navigate(`/pacientes/${result.paciente.id}`, {
         state: result.created ? { pacienteNuevo: true } : { pacienteExistente: true },
@@ -50,7 +65,7 @@ export function NuevoPacienteModal({ onClose }: { onClose: () => void }) {
           <div>
             <h3 className="text-lg font-bold text-auditart-navy">Nuevo paciente</h3>
             <p className="text-xs text-auditart-muted">
-              Alta manual. Si ya existe un paciente con el mismo nombre y DNI, se abre su ficha.
+              Cargá el DNI y tocá “Buscar” para traer los datos si el paciente ya existe.
             </p>
           </div>
           <button
@@ -70,35 +85,48 @@ export function NuevoPacienteModal({ onClose }: { onClose: () => void }) {
             </div>
           )}
           <label className="text-xs font-semibold text-auditart-gray sm:col-span-2">
+            DNI *
+            <div className="mt-1">
+              <DniLookupField value={dni} onChange={setDni} onFound={applyLookup} required />
+            </div>
+          </label>
+          {existente && (
+            <div className="flex items-center justify-between gap-2 rounded-xl bg-auditart-blue/5 px-3 py-2 text-xs text-auditart-navy sm:col-span-2">
+              <span>Este paciente ya está registrado.</span>
+              <Link
+                to={`/pacientes/${existente.id}`}
+                className="inline-flex items-center gap-1 font-semibold text-auditart-blue hover:underline"
+              >
+                Abrir ficha <ExternalLink size={12} />
+              </Link>
+            </div>
+          )}
+          <label className="text-xs font-semibold text-auditart-gray sm:col-span-2">
             Nombre y apellido *
             <input
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
-              autoFocus
               className="input-modern mt-1 w-full px-3 py-2 text-sm"
             />
           </label>
-          <label className="text-xs font-semibold text-auditart-gray">
-            DNI *
-            <input
-              value={dni}
-              onChange={(e) => setDni(e.target.value)}
-              className="input-modern mt-1 w-full px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="text-xs font-semibold text-auditart-gray">
+          <div className="text-xs font-semibold text-auditart-gray">
             ART
-            <input
-              value={art}
-              onChange={(e) => setArt(e.target.value)}
-              className="input-modern mt-1 w-full px-3 py-2 text-sm"
-            />
-          </label>
+            <ArtSelect value={art} onChange={setArt} className="mt-1" />
+          </div>
           <label className="text-xs font-semibold text-auditart-gray">
             Nº de siniestro
             <input
               value={numeroSiniestro}
               onChange={(e) => setNumeroSiniestro(e.target.value)}
+              className="input-modern mt-1 w-full px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="text-xs font-semibold text-auditart-gray sm:col-span-2">
+            Domicilio
+            <input
+              value={domicilio}
+              onChange={(e) => setDomicilio(e.target.value)}
+              placeholder="Calle, número, localidad"
               className="input-modern mt-1 w-full px-3 py-2 text-sm"
             />
           </label>
@@ -110,7 +138,7 @@ export function NuevoPacienteModal({ onClose }: { onClose: () => void }) {
               className="input-modern mt-1 w-full px-3 py-2 text-sm"
             />
           </label>
-          <label className="text-xs font-semibold text-auditart-gray sm:col-span-2">
+          <label className="text-xs font-semibold text-auditart-gray">
             Email
             <input
               type="email"

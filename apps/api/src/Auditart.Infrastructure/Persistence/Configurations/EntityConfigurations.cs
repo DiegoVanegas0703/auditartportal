@@ -22,6 +22,18 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
     }
 }
 
+public class AseguradoraConfiguration : IEntityTypeConfiguration<Aseguradora>
+{
+    public void Configure(EntityTypeBuilder<Aseguradora> builder)
+    {
+        builder.ToTable("aseguradoras");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Nombre).HasMaxLength(200).IsRequired();
+        builder.Property(x => x.Cuit).HasMaxLength(20).IsRequired();
+        builder.HasIndex(x => x.Nombre).IsUnique();
+    }
+}
+
 public class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshToken>
 {
     public void Configure(EntityTypeBuilder<RefreshToken> builder)
@@ -125,6 +137,7 @@ public class PacienteConfiguration : IEntityTypeConfiguration<Paciente>
         builder.Property(x => x.Email).HasMaxLength(256);
         builder.Property(x => x.Art).HasMaxLength(200);
         builder.Property(x => x.NumeroSiniestro).HasMaxLength(64);
+        builder.Property(x => x.Domicilio).HasMaxLength(300);
         builder.HasIndex(x => new { x.DniNormalizado, x.NombreNormalizado });
         builder.HasIndex(x => x.DniNormalizado);
     }

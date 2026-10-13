@@ -106,6 +106,25 @@ public sealed class GmailInboxService : IGmailInboxService, IDisposable
         }
     }
 
+    public async Task<string?> GetThreadIdAsync(
+        string messageId,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var request = _gmail.Users.Messages.Get("me", messageId);
+            request.Format = UsersResource.MessagesResource.GetRequest.FormatEnum.Minimal;
+            var message = await request.ExecuteAsync(cancellationToken);
+            return message.ThreadId;
+        }
+        catch (Google.GoogleApiException ex) when (
+            ex.HttpStatusCode == HttpStatusCode.NotFound ||
+            ex.Error?.Code == 404)
+        {
+            return null;
+        }
+    }
+
     public async Task<string?> GetProfileHistoryIdAsync(CancellationToken cancellationToken = default)
     {
         var profile = await _gmail.Users.GetProfile("me").ExecuteAsync(cancellationToken);
@@ -360,6 +379,7 @@ public sealed class GmailInboxService : IGmailInboxService, IDisposable
         var plainBody = new StringBuilder();
         var htmlBody = new StringBuilder();
         var attachments = new List<GmailAttachmentDto>();
+        var inlineImages = new Dictionary<string, InlineImage>(StringComparer.OrdinalIgnoreCase);
 
         if (message.Payload is not null)
         {
@@ -369,13 +389,16 @@ public sealed class GmailInboxService : IGmailInboxService, IDisposable
                 plainBody,
                 htmlBody,
                 attachments,
+                inlineImages,
                 cancellationToken);
         }
 
         var bodyText = plainBody.Length > 0
             ? plainBody.ToString().Trim()
             : HtmlToText(htmlBody.ToString());
-        var bodyHtml = htmlBody.Length > 0 ? htmlBody.ToString() : null;
+        var bodyHtml = htmlBody.Length > 0
+            ? EmbedInlineImages(htmlBody.ToString(), inlineImages, attachments)
+            : null;
 
         return new GmailMessageDto(
             message.Id,
@@ -400,6 +423,7 @@ public sealed class GmailInboxService : IGmailInboxService, IDisposable
         StringBuilder plainBody,
         StringBuilder htmlBody,
         List<GmailAttachmentDto> attachments,
+        Dictionary<string, InlineImage> inlineImages,
         CancellationToken cancellationToken)
     {
         if (part.Parts is not null)
@@ -412,14 +436,25 @@ public sealed class GmailInboxService : IGmailInboxService, IDisposable
                     plainBody,
                     htmlBody,
                     attachments,
+                    inlineImages,
                     cancellationToken);
             }
+        }
+
+        var contentId = Header(part.Headers ?? [], "Content-ID")?.Trim().Trim('<', '>');
+        var isImage = part.MimeType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) == true;
+        byte[]? inlineContent = null;
+        if (isImage && !string.IsNullOrWhiteSpace(contentId))
+        {
+            inlineContent = await ReadAttachmentContentAsync(messageId, part, cancellationToken);
+            if (inlineContent.Length > 0)
+                inlineImages[contentId] = new InlineImage(part.MimeType!, inlineContent);
         }
 
         var hasFileName = !string.IsNullOrWhiteSpace(part.Filename);
         if (hasFileName)
         {
-            var content = await ReadAttachmentContentAsync(messageId, part, cancellationToken);
+            var content = inlineContent ?? await ReadAttachmentContentAsync(messageId, part, cancellationToken);
             if (content.LongLength > _options.MaxAttachmentBytes)
             {
                 throw new InvalidOperationException(
@@ -450,6 +485,36 @@ public sealed class GmailInboxService : IGmailInboxService, IDisposable
             plainBody.AppendLine(text);
         else
             htmlBody.AppendLine(text);
+    }
+
+    private sealed record InlineImage(string MimeType, byte[] Content);
+
+    private const int MaxInlineImageBytes = 3 * 1024 * 1024;
+
+    /// <summary>
+    /// Reemplaza <c>cid:</c> por data URIs para que el HTML se vea solo; las imágenes embebidas
+    /// dejan de listarse como adjuntos.
+    /// </summary>
+    private static string EmbedInlineImages(
+        string html,
+        Dictionary<string, InlineImage> inlineImages,
+        List<GmailAttachmentDto> attachments)
+    {
+        if (inlineImages.Count == 0 || !html.Contains("cid:", StringComparison.OrdinalIgnoreCase))
+            return html;
+
+        return Regex.Replace(
+            html,
+            @"cid:([^""'\s>)]+)",
+            match =>
+            {
+                var cid = WebUtility.UrlDecode(match.Groups[1].Value);
+                if (!inlineImages.TryGetValue(cid, out var image) || image.Content.Length > MaxInlineImageBytes)
+                    return match.Value;
+                attachments.RemoveAll(a => ReferenceEquals(a.Content, image.Content));
+                return $"data:{image.MimeType};base64,{Convert.ToBase64String(image.Content)}";
+            },
+            RegexOptions.IgnoreCase);
     }
 
     private async Task<byte[]> ReadAttachmentContentAsync(

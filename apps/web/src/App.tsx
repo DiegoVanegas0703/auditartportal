@@ -5,6 +5,7 @@ import { AuthProvider } from './context/AuthContext'
 import { AuditProvider } from './context/AuditContext'
 import { useAuth } from './context/useAuth'
 import { AlertsPage } from './pages/AlertsPage'
+import { ArtsPage } from './pages/ArtsPage'
 import { AuditDetailPage } from './pages/AuditDetailPage'
 import { BillingPage } from './pages/BillingPage'
 import { ChangePasswordPage } from './pages/ChangePasswordPage'
@@ -143,6 +144,14 @@ function AppRoutes() {
           }
         />
         <Route path="mi-cuenta" element={<MiCuentaPage />} />
+        <Route
+          path="arts"
+          element={
+            <ProtectedRoute requiredPermission="triage">
+              <ArtsPage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="servicio/:id" element={<AuditDetailPage />} />
         <Route
           path="pacientes/:id"

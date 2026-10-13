@@ -197,7 +197,9 @@ public sealed class GmailIngestionService
 
 
 
-        foreach (var id in await gmail.ListUnreadIdsAsync(cancellationToken))
+        var unreadIds = new HashSet<string>(await gmail.ListUnreadIdsAsync(cancellationToken), StringComparer.Ordinal);
+
+        foreach (var id in unreadIds)
 
             messageIds.Add(id);
 
@@ -238,6 +240,31 @@ public sealed class GmailIngestionService
                     await TryMarkAsReadAsync(gmail, messageId, errors, cancellationToken);
 
                     continue;
+
+                }
+
+
+
+                // Ya leído en Gmail (solo vino por historial): se importa únicamente si continúa una conversación existente.
+                if (!unreadIds.Contains(messageId))
+
+                {
+
+                    var providerThreadId = await gmail.GetThreadIdAsync(messageId, cancellationToken);
+
+                    var continuesThread = providerThreadId is not null && await _db.EmailThreads
+
+                        .AnyAsync(t => t.Mailbox == mailbox && t.ProviderThreadId == providerThreadId, cancellationToken);
+
+                    if (!continuesThread)
+
+                    {
+
+                        skipped++;
+
+                        continue;
+
+                    }
 
                 }
 

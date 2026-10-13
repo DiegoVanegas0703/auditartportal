@@ -17,6 +17,7 @@ export interface AssignDetails {
   numeroSiniestro?: string
   telefonoPaciente?: string
   emailPaciente?: string
+  domicilio?: string
   tipoServicio?: ServiceType
   especialidad?: string
   urgency?: UrgencyLevel

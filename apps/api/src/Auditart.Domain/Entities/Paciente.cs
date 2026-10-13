@@ -20,6 +20,7 @@ public class Paciente : Entity
     public string? Email { get; private set; }
     public string? Art { get; private set; }
     public string? NumeroSiniestro { get; private set; }
+    public string? Domicilio { get; private set; }
 
     public ICollection<AuditService> Prestaciones { get; private set; } = new List<AuditService>();
 
@@ -31,10 +32,11 @@ public class Paciente : Entity
         string? telefono = null,
         string? email = null,
         string? art = null,
-        string? numeroSiniestro = null)
+        string? numeroSiniestro = null,
+        string? domicilio = null)
     {
         var entity = new Paciente();
-        entity.Apply(nombre, dni, telefono, email, art, numeroSiniestro);
+        entity.Apply(nombre, dni, telefono, email, art, numeroSiniestro, domicilio);
         return entity;
     }
 
@@ -42,12 +44,14 @@ public class Paciente : Entity
         string? telefono,
         string? email,
         string? art,
-        string? numeroSiniestro)
+        string? numeroSiniestro,
+        string? domicilio = null)
     {
         if (!string.IsNullOrWhiteSpace(telefono)) Telefono = telefono.Trim();
         if (!string.IsNullOrWhiteSpace(email)) Email = email.Trim();
         if (!string.IsNullOrWhiteSpace(art)) Art = art.Trim();
         if (!string.IsNullOrWhiteSpace(numeroSiniestro)) NumeroSiniestro = numeroSiniestro.Trim();
+        if (!string.IsNullOrWhiteSpace(domicilio)) Domicilio = domicilio.Trim();
         Touch();
     }
 
@@ -58,15 +62,16 @@ public class Paciente : Entity
         string? telefono,
         string? email,
         string? art,
-        string? numeroSiniestro)
+        string? numeroSiniestro,
+        string? domicilio)
     {
-        Apply(nombre, dni, telefono, email, art, numeroSiniestro);
+        Apply(nombre, dni, telefono, email, art, numeroSiniestro, domicilio);
         Touch();
     }
 
     public void ApplyIdentity(string nombre, string? dni)
     {
-        Apply(nombre, dni, Telefono, Email, Art, NumeroSiniestro);
+        Apply(nombre, dni, Telefono, Email, Art, NumeroSiniestro, Domicilio);
         Touch();
     }
 
@@ -76,8 +81,10 @@ public class Paciente : Entity
         string? telefono,
         string? email,
         string? art,
-        string? numeroSiniestro)
+        string? numeroSiniestro,
+        string? domicilio)
     {
+        Domicilio = string.IsNullOrWhiteSpace(domicilio) ? null : domicilio.Trim();
         Nombre = (nombre ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(Nombre))
             Nombre = "Sin identificar";

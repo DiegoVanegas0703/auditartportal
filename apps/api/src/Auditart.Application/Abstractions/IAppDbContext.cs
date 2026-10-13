@@ -22,6 +22,7 @@ public interface IAppDbContext
     IQueryable<EmailAttachment> EmailAttachments { get; }
     IQueryable<EmailSendOutbox> EmailSendOutbox { get; }
     IQueryable<GmailSyncState> GmailSyncStates { get; }
+    IQueryable<Aseguradora> Aseguradoras { get; }
 
     void Add<T>(T entity) where T : class;
     void Remove<T>(T entity) where T : class;
@@ -59,6 +60,7 @@ public sealed record ObjectDownload(Stream Content, string? ContentType);
 public interface IGmailInboxService
 {
     Task<IReadOnlyList<string>> ListUnreadIdsAsync(CancellationToken cancellationToken = default);
+    Task<string?> GetThreadIdAsync(string messageId, CancellationToken cancellationToken = default);
     Task<GmailMessageDto?> GetMessageAsync(string messageId, CancellationToken cancellationToken = default);
     Task<string?> GetProfileHistoryIdAsync(CancellationToken cancellationToken = default);
 

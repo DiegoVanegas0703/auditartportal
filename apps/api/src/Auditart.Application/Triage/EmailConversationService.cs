@@ -261,6 +261,17 @@ public sealed class EmailConversationService
         await _db.SaveChangesAsync(ct);
     }
 
+    public async Task<int> IgnorePendingBeforeAsync(DateTime beforeUtc, Guid userId, CancellationToken ct)
+    {
+        var pending = await _db.EmailRequests
+            .Where(r => r.State == EmailRequestState.Pending && r.LastMessageAtUtc < beforeUtc)
+            .ToListAsync(ct);
+        foreach (var request in pending)
+            request.Ignore(userId);
+        await _db.SaveChangesAsync(ct);
+        return pending.Count;
+    }
+
     public async Task RestoreAsync(Guid requestId, CancellationToken ct)
     {
         var request = await _db.EmailRequests.FirstOrDefaultAsync(r => r.Id == requestId, ct)

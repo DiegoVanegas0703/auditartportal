@@ -96,7 +96,8 @@ public sealed class PacienteService
             request.Telefono,
             request.Email,
             request.Art,
-            request.NumeroSiniestro);
+            request.NumeroSiniestro,
+            request.Domicilio);
         _db.Add(created);
         await _db.SaveChangesAsync(ct);
         return new CreatePacienteResult(true, await GetAsync(created.Id, ct));
@@ -116,7 +117,8 @@ public sealed class PacienteService
             request.Telefono,
             request.Email,
             request.Art,
-            request.NumeroSiniestro);
+            request.NumeroSiniestro,
+            request.Domicilio);
 
         // Propagar a prestaciones abiertas (no cerradas en Celeste).
         var abiertas = await _db.AuditServices
@@ -202,7 +204,23 @@ public sealed class PacienteService
             p.Art,
             p.NumeroSiniestro,
             prestaciones.Count(x => x.Status != AuditStatus.Celeste),
-            prestaciones);
+            prestaciones,
+            p.Domicilio);
+
+    /// <summary>Pacientes con ese DNI (para autocompletar formularios).</summary>
+    public async Task<IReadOnlyList<PacienteLookupDto>> FindByDniAsync(string dni, CancellationToken ct)
+    {
+        var dniNorm = Paciente.NormalizeDni(dni);
+        if (dniNorm is null) return [];
+
+        return await _db.Pacientes.AsNoTracking()
+            .Where(p => p.DniNormalizado == dniNorm)
+            .OrderByDescending(p => p.UpdatedAtUtc)
+            .Take(5)
+            .Select(p => new PacienteLookupDto(
+                p.Id, p.Nombre, p.Dni, p.Telefono, p.Email, p.Art, p.NumeroSiniestro, p.Domicilio))
+            .ToListAsync(ct);
+    }
 }
 
 public sealed record PacienteDto(
@@ -214,7 +232,18 @@ public sealed record PacienteDto(
     string? Art,
     string? NumeroSiniestro,
     int PrestacionesAbiertas,
-    IReadOnlyList<PacientePrestacionDto> Prestaciones);
+    IReadOnlyList<PacientePrestacionDto> Prestaciones,
+    string? Domicilio = null);
+
+public sealed record PacienteLookupDto(
+    Guid Id,
+    string Nombre,
+    string? Dni,
+    string? Telefono,
+    string? Email,
+    string? Art,
+    string? NumeroSiniestro,
+    string? Domicilio);
 
 public sealed record PacientePrestacionDto(
     Guid Id,
@@ -249,4 +278,5 @@ public sealed record UpdatePacienteRequest(
     string? Telefono,
     string? Email,
     string? Art,
-    string? NumeroSiniestro);
+    string? NumeroSiniestro,
+    string? Domicilio = null);

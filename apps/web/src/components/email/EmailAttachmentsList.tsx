@@ -1,4 +1,4 @@
-import { Download, Loader2, Paperclip, Trash2 } from 'lucide-react'
+import { ChevronDown, Download, Loader2, Paperclip, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { attachmentsApi } from '../../api/auditartApi'
 import type { EmailAttachment } from '../../types'
@@ -23,6 +23,7 @@ export function EmailAttachmentsList({
   deletingId?: string | null
 }) {
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
+  const [open, setOpen] = useState(false)
 
   if (attachments.length === 0) return null
 
@@ -39,9 +40,17 @@ export function EmailAttachmentsList({
 
   return (
     <div>
-      <p className="mb-2 text-xs font-bold uppercase tracking-wider text-auditart-muted">
-        {title} ({attachments.length})
-      </p>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="mb-2 inline-flex items-center gap-1.5 rounded-lg px-1 text-xs font-bold uppercase tracking-wider text-auditart-muted hover:text-auditart-blue"
+      >
+        <Paperclip size={13} />
+        {open ? 'Ocultar' : 'Ver'} {title.toLowerCase()} ({attachments.length})
+        <ChevronDown size={14} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
       <div className="space-y-2">
         {attachments.map((attachment) => (
           <div
@@ -87,6 +96,7 @@ export function EmailAttachmentsList({
           </div>
         ))}
       </div>
+      )}
     </div>
   )
 }

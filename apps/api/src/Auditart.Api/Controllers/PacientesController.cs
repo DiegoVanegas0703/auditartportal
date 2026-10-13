@@ -31,6 +31,14 @@ public class PacientesController : ControllerBase
         }
     }
 
+    [HttpGet("by-dni/{dni}")]
+    public async Task<ActionResult<IReadOnlyList<PacienteLookupDto>>> FindByDni(string dni, CancellationToken ct)
+    {
+        if (!PermissionService.CanOperateBoard(GetRole()) && !PermissionService.CanTriage(GetRole()))
+            return Forbid();
+        return Ok(await _service.FindByDniAsync(dni, ct));
+    }
+
     [HttpPost]
     public async Task<ActionResult<CreatePacienteResult>> Create(
         [FromBody] UpdatePacienteRequest request,

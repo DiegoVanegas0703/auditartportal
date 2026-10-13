@@ -73,11 +73,47 @@ public static class DbSeeder
             await db.SaveChangesAsync();
 
         await SeedSlaRulesAsync(db, logger);
+        await SeedAseguradorasAsync(db, logger);
 
         logger.LogInformation(
             "Seed de usuarios completado ({Created} nuevos, {Updated} con contraseña).",
             created,
             updated);
+    }
+
+    private static async Task SeedAseguradorasAsync(AppDbContext db, ILogger logger)
+    {
+        // Solo la primera vez: después el catálogo se administra desde el módulo ARTs.
+        if (await db.Aseguradoras.AnyAsync()) return;
+
+        var seed = new (string Nombre, string Cuit)[]
+        {
+            ("PLUS ART", "30-50005918-0"),
+            ("SANCOR SALUD", "30-58032155-2"),
+            ("PARANA ART", "30-71708384-5"),
+            ("RECONQUISTA ART", "30-63278185-3"),
+            ("BERKLEY ART", "30-68589307-6"),
+            ("FEDERACIÓN PATRONAL", "33-70736658-9"),
+            ("SAN FRANCISCO ART", "30-71721658-6"),
+            ("LA HOLANDO SUDAMERICANA ART", "33-50003806-9"),
+            ("CEA-SAN PEDRO", "30-71583569-6"),
+            ("VICTORIA ART", "30-50003226-6"),
+            ("ISL", "33-70899259-9"),
+            ("UATRE", "30-53306223-3"),
+            ("ANDINA ART", "33-71699299-9"),
+            ("ASOCIART", "30-68627333-0"),
+            ("GALENO ART", "30-68522850-1"),
+            ("AUDITART", "30-71679555-8"),
+            ("ASOCIACION MUTUAL", "30-71012727-8"),
+            ("PANAVA SRL", "30-71755519-4"),
+            ("ART MUTUAL RURAL", "30-71621143-2"),
+            ("MEOPP ART", "30-71500295-3"),
+        };
+
+        foreach (var (nombre, cuit) in seed)
+            db.Aseguradoras.Add(Aseguradora.Create(nombre, cuit));
+        await db.SaveChangesAsync();
+        logger.LogInformation("Seed de ARTs: {Count} creadas.", seed.Length);
     }
 
     private static async Task SeedSlaRulesAsync(AppDbContext db, ILogger logger)

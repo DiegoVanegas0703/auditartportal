@@ -522,6 +522,11 @@ export const triageApi = {
     apiFetch<GmailSyncResult>('/api/triage/sync-gmail', {
       method: 'POST',
     }),
+  ignoreRequestsBefore: (beforeIso: string) =>
+    apiFetch<{ ignored: number }>('/api/triage/requests/ignore-before', {
+      method: 'POST',
+      body: JSON.stringify({ before: beforeIso }),
+    }),
   backfillRequests: () =>
     apiFetch<GmailSyncResult>('/api/triage/requests/backfill', { method: 'POST' }),
   seedDemoEmails: () =>
@@ -566,6 +571,7 @@ export const triageApi = {
       numeroSiniestro?: string
       telefonoPaciente?: string
       emailPaciente?: string
+      domicilio?: string
       tipoServicio?: ServiceType
       especialidad?: string
       urgency?: UrgencyLevel
@@ -582,6 +588,7 @@ export const triageApi = {
     if (details.numeroSiniestro) form.append('numeroSiniestro', details.numeroSiniestro)
     if (details.telefonoPaciente) form.append('telefonoPaciente', details.telefonoPaciente)
     if (details.emailPaciente) form.append('emailPaciente', details.emailPaciente)
+    if (details.domicilio) form.append('domicilio', details.domicilio)
     if (details.tipoServicio) form.append('tipoServicio', serviceTypeToApi(details.tipoServicio))
     if (details.especialidad) form.append('especialidad', details.especialidad)
     if (details.urgency) form.append('urgency', urgencyToApi(details.urgency))
@@ -1251,6 +1258,22 @@ export interface PacientePrestacionDto {
   tieneAutorizacion: boolean
 }
 
+export interface ArtDto {
+  id: string
+  nombre: string
+  cuit: string
+  isActive: boolean
+}
+
+export const artsApi = {
+  list: (includeInactive = false) =>
+    apiFetch<ArtDto[]>(`/api/arts${includeInactive ? '?includeInactive=true' : ''}`),
+  create: (body: { nombre: string; cuit: string }) =>
+    apiFetch<ArtDto>('/api/arts', { method: 'POST', body: JSON.stringify(body) }),
+  update: (id: string, body: { nombre: string; cuit: string; isActive: boolean }) =>
+    apiFetch<ArtDto>(`/api/arts/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+}
+
 export interface PacienteDto {
   id: string
   nombre: string
@@ -1259,12 +1282,26 @@ export interface PacienteDto {
   email?: string | null
   art?: string | null
   numeroSiniestro?: string | null
+  domicilio?: string | null
   prestacionesAbiertas: number
   prestaciones: PacientePrestacionDto[]
 }
 
+export interface PacienteLookupDto {
+  id: string
+  nombre: string
+  dni?: string | null
+  telefono?: string | null
+  email?: string | null
+  art?: string | null
+  numeroSiniestro?: string | null
+  domicilio?: string | null
+}
+
 export const pacientesApi = {
   get: (id: string) => apiFetch<PacienteDto>(`/api/pacientes/${id}`),
+  findByDni: (dni: string) =>
+    apiFetch<PacienteLookupDto[]>(`/api/pacientes/by-dni/${encodeURIComponent(dni.trim())}`),
   create: (body: {
     nombre: string
     dni: string
@@ -1272,6 +1309,7 @@ export const pacientesApi = {
     email?: string
     art?: string
     numeroSiniestro?: string
+    domicilio?: string
   }) =>
     apiFetch<{ created: boolean; paciente: PacienteDto }>('/api/pacientes', {
       method: 'POST',
@@ -1282,6 +1320,7 @@ export const pacientesApi = {
         email: body.email || null,
         art: body.art || null,
         numeroSiniestro: body.numeroSiniestro || null,
+        domicilio: body.domicilio || null,
       }),
     }),
   update: (
@@ -1293,6 +1332,7 @@ export const pacientesApi = {
       email?: string
       art?: string
       numeroSiniestro?: string
+      domicilio?: string
     },
   ) =>
     apiFetch<PacienteDto>(`/api/pacientes/${id}`, {
@@ -1304,6 +1344,7 @@ export const pacientesApi = {
         email: body.email || null,
         art: body.art || null,
         numeroSiniestro: body.numeroSiniestro || null,
+        domicilio: body.domicilio || null,
       }),
     }),
   createPrestacion: (

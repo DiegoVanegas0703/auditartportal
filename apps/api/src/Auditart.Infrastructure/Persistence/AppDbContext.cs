@@ -24,6 +24,7 @@ public class AppDbContext : DbContext, Application.Abstractions.IAppDbContext
     public DbSet<EmailAttachment> EmailAttachments => Set<EmailAttachment>();
     public DbSet<EmailSendOutbox> EmailSendOutboxItems => Set<EmailSendOutbox>();
     public DbSet<GmailSyncState> GmailSyncStates => Set<GmailSyncState>();
+    public DbSet<Aseguradora> Aseguradoras => Set<Aseguradora>();
 
     IQueryable<User> Application.Abstractions.IAppDbContext.Users => Users;
     IQueryable<AuditService> Application.Abstractions.IAppDbContext.AuditServices => AuditServices;
@@ -42,6 +43,7 @@ public class AppDbContext : DbContext, Application.Abstractions.IAppDbContext
     IQueryable<EmailAttachment> Application.Abstractions.IAppDbContext.EmailAttachments => EmailAttachments;
     IQueryable<EmailSendOutbox> Application.Abstractions.IAppDbContext.EmailSendOutbox => EmailSendOutboxItems;
     IQueryable<GmailSyncState> Application.Abstractions.IAppDbContext.GmailSyncStates => GmailSyncStates;
+    IQueryable<Aseguradora> Application.Abstractions.IAppDbContext.Aseguradoras => Aseguradoras;
 
     public new void Add<T>(T entity) where T : class => Set<T>().Add(entity);
     public new void Remove<T>(T entity) where T : class => Set<T>().Remove(entity);

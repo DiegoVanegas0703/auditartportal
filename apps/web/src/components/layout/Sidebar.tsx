@@ -2,6 +2,7 @@ import {
   AlertTriangle,
   BarChart3,
   Bell,
+  Building2,
   ClipboardList,
   FileSpreadsheet,
   Inbox,
@@ -31,6 +32,7 @@ const navItems = [
   { to: '/sla', icon: Timer, label: 'Reglas SLA', perm: 'reports' as const },
   { to: '/doctores', icon: Stethoscope, label: 'Doctores', perm: 'reports' as const },
   { to: '/precios', icon: CircleDollarSign, label: 'Precios', perm: 'precios' as const },
+  { to: '/arts', icon: Building2, label: 'ARTs', perm: 'triage' as const },
   { to: '/facturacion', icon: FileSpreadsheet, label: 'Facturación', perm: 'billing' as const },
   { to: '/usuarios', icon: Users, label: 'Usuarios', perm: 'manageUsers' as const },
 ]

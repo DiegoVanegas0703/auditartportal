@@ -22,6 +22,9 @@ public class StubGmailInboxService : IGmailInboxService
         return Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
     }
 
+    public Task<string?> GetThreadIdAsync(string messageId, CancellationToken cancellationToken = default) =>
+        Task.FromResult<string?>(null);
+
     public Task<GmailMessageDto?> GetMessageAsync(string messageId, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("StubGmail: GetMessage {MessageId}", messageId);

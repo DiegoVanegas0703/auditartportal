@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { pacientesApi, type PacienteDto } from '../api/auditartApi'
 import { useAudits } from '../context/useAudits'
+import { ArtSelect } from '../components/arts/ArtSelect'
 import { PageHeader } from '../components/ui/PageHeader'
 import { StatusBadge } from '../components/ui/StatusBadge'
 import {
@@ -53,6 +54,7 @@ export function PacientePage() {
   const [editEmail, setEditEmail] = useState('')
   const [editArt, setEditArt] = useState('')
   const [editSiniestro, setEditSiniestro] = useState('')
+  const [editDomicilio, setEditDomicilio] = useState('')
 
   const load = async (pacienteId: string) => {
     setLoading(true)
@@ -66,6 +68,7 @@ export function PacientePage() {
       setEditEmail(dto.email ?? '')
       setEditArt(dto.art ?? '')
       setEditSiniestro(dto.numeroSiniestro ?? '')
+      setEditDomicilio(dto.domicilio ?? '')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo cargar el paciente')
     } finally {
@@ -106,6 +109,7 @@ export function PacientePage() {
         email: editEmail.trim() || undefined,
         art: editArt.trim() || undefined,
         numeroSiniestro: editSiniestro.trim() || undefined,
+        domicilio: editDomicilio.trim() || undefined,
       })
       setData(updated)
       setEditingPaciente(false)
@@ -182,6 +186,7 @@ export function PacientePage() {
                   setEditEmail(data.email ?? '')
                   setEditArt(data.art ?? '')
                   setEditSiniestro(data.numeroSiniestro ?? '')
+                  setEditDomicilio(data.domicilio ?? '')
                 }
                 setEditingPaciente((v) => !v)
               }}
@@ -255,19 +260,24 @@ export function PacientePage() {
               className="input-modern mt-1 w-full px-3 py-2 text-sm"
             />
           </label>
-          <label className="text-xs font-semibold text-auditart-gray">
+          <div className="text-xs font-semibold text-auditart-gray">
             ART
-            <input
-              value={editArt}
-              onChange={(e) => setEditArt(e.target.value)}
-              className="input-modern mt-1 w-full px-3 py-2 text-sm"
-            />
-          </label>
+            <ArtSelect value={editArt} onChange={setEditArt} className="mt-1" />
+          </div>
           <label className="text-xs font-semibold text-auditart-gray">
             N° siniestro
             <input
               value={editSiniestro}
               onChange={(e) => setEditSiniestro(e.target.value)}
+              className="input-modern mt-1 w-full px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="text-xs font-semibold text-auditart-gray md:col-span-2">
+            Domicilio
+            <input
+              value={editDomicilio}
+              onChange={(e) => setEditDomicilio(e.target.value)}
+              placeholder="Calle, número, localidad"
               className="input-modern mt-1 w-full px-3 py-2 text-sm"
             />
           </label>
@@ -291,6 +301,9 @@ export function PacientePage() {
           <Field label="DNI" value={data.dni} />
           <Field label="ART" value={data.art} />
           <Field label="Nombre" value={data.nombre} />
+          <div className="sm:col-span-3">
+            <Field label="Domicilio" value={data.domicilio} />
+          </div>
         </div>
       ) : null}
 

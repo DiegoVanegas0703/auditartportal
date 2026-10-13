@@ -27,6 +27,8 @@ import {
 } from '../api/auditartApi'
 import { EmailAttachmentsList } from '../components/email/EmailAttachmentsList'
 import { EmailReplyComposer } from '../components/email/EmailReplyComposer'
+import { ArtSelect } from '../components/arts/ArtSelect'
+import { DniLookupField } from '../components/pacientes/DniLookupField'
 import { EmailTimeline } from '../components/email/EmailTimeline'
 import { PageHeader } from '../components/ui/PageHeader'
 import { useAudits } from '../context/useAudits'
@@ -60,6 +62,7 @@ const QUEUES: { key: AuditQueue; icon: string; desc: string }[] = [
 export function TriagePage() {
   const { assignRequestToQueue, syncGmail, refresh } = useAudits()
   const [requests, setRequests] = useState<EmailRequestSummary[]>([])
+  const [ignoreBeforeDate, setIgnoreBeforeDate] = useState('')
   const [detail, setDetail] = useState<EmailRequestDetail | null>(null)
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -86,6 +89,7 @@ export function TriagePage() {
   const [numeroSiniestro, setNumeroSiniestro] = useState('')
   const [telefonoPaciente, setTelefonoPaciente] = useState('')
   const [emailPaciente, setEmailPaciente] = useState('')
+  const [domicilio, setDomicilio] = useState('')
   const [tipoServicio, setTipoServicio] = useState<ServiceType>('consultorio')
   const [especialidad, setEspecialidad] = useState('')
   const [urgency, setUrgency] = useState<UrgencyLevel>('alta')
@@ -183,6 +187,7 @@ export function TriagePage() {
     setNumeroSiniestro('')
     setTelefonoPaciente('')
     setEmailPaciente('')
+    setDomicilio('')
     setTipoServicio('consultorio')
     setEspecialidad('')
     setUrgency(detail.subject.toLowerCase().includes('urgent') ? 'critica' : 'alta')
@@ -257,6 +262,27 @@ export function TriagePage() {
     }
   }
 
+  const handleIgnoreBefore = async () => {
+    if (!ignoreBeforeDate) return
+    const label = new Date(`${ignoreBeforeDate}T00:00:00`).toLocaleDateString('es-AR')
+    if (!window.confirm(`¿Ignorar todos los pendientes recibidos antes del ${label}?`)) return
+    setBusy(true)
+    setError(null)
+    try {
+      const { ignored } = await triageApi.ignoreRequestsBefore(
+        new Date(`${ignoreBeforeDate}T00:00:00`).toISOString(),
+      )
+      setSelectedId('')
+      await loadPage()
+      setToast(`${ignored} requerimiento(s) movidos a Ignorados`)
+      setTimeout(() => setToast(''), 4000)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo limpiar la bandeja')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const handleBackfill = async () => {
     setBusy(true)
     setError(null)
@@ -305,6 +331,7 @@ export function TriagePage() {
         numeroSiniestro: numeroSiniestro.trim(),
         telefonoPaciente: telefonoPaciente.trim(),
         emailPaciente: emailPaciente.trim(),
+        domicilio: domicilio.trim() || undefined,
         tipoServicio,
         especialidad: especialidad.trim() || undefined,
         urgency,
@@ -537,6 +564,34 @@ export function TriagePage() {
                 </option>
               ))}
             </select>
+
+            {view === 'pending' && pendingCount > 0 && (
+              <details className="mb-3 rounded-xl bg-gray-50 px-3 py-2 text-xs">
+                <summary className="cursor-pointer font-semibold text-auditart-gray">
+                  Limpiar bandeja (ignorar pendientes viejos)
+                </summary>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className="text-auditart-muted">Recibidos antes del</span>
+                  <input
+                    type="date"
+                    value={ignoreBeforeDate}
+                    onChange={(e) => setIgnoreBeforeDate(e.target.value)}
+                    className="input-modern px-2 py-1 text-xs"
+                  />
+                  <button
+                    type="button"
+                    disabled={busy || !ignoreBeforeDate}
+                    onClick={() => void handleIgnoreBefore()}
+                    className="rounded-lg bg-white px-3 py-1 font-semibold text-red-600 ring-1 ring-red-200 hover:bg-red-50 disabled:opacity-50"
+                  >
+                    Ignorar
+                  </button>
+                </div>
+                <p className="mt-1 text-[11px] text-auditart-muted">
+                  Pasan a “Ignorados”; desde ahí se pueden restaurar.
+                </p>
+              </details>
+            )}
 
             {selectedIds.length > 0 && view === 'pending' && (
               <button
@@ -842,27 +897,25 @@ export function TriagePage() {
                         <span className="mb-1 block text-xs font-semibold text-auditart-gray">
                           DNI
                         </span>
-                        <input
-                          type="text"
+                        <DniLookupField
                           value={dni}
-                          onChange={(e) => setDni(e.target.value)}
-                          placeholder="Sin puntos"
-                          className="input-modern w-full px-3 py-2 text-sm"
+                          onChange={setDni}
+                          onFound={(p) => {
+                            setPaciente(p.nombre)
+                            if (p.art) setArt(p.art)
+                            if (p.numeroSiniestro) setNumeroSiniestro(p.numeroSiniestro)
+                            if (p.telefono) setTelefonoPaciente(p.telefono)
+                            if (p.email) setEmailPaciente(p.email)
+                            if (p.domicilio) setDomicilio(p.domicilio)
+                          }}
                         />
                       </label>
-                      <label className="block">
+                      <div className="block">
                         <span className="mb-1 block text-xs font-semibold text-auditart-gray">
                           ART (aseguradora)
                         </span>
-                        <input
-                          type="text"
-                          value={art}
-                          onChange={(e) => setArt(e.target.value)}
-                          placeholder="Ej: La Caja ART"
-                          className="input-modern w-full px-3 py-2 text-sm"
-                          required
-                        />
-                      </label>
+                        <ArtSelect value={art} onChange={setArt} required />
+                      </div>
                       <label className="block">
                         <span className="mb-1 block text-xs font-semibold text-auditart-gray">
                           N° de siniestro
@@ -900,6 +953,18 @@ export function TriagePage() {
                           placeholder="paciente@ejemplo.com"
                           className="input-modern w-full px-3 py-2 text-sm"
                           required
+                        />
+                      </label>
+                      <label className="block sm:col-span-2">
+                        <span className="mb-1 block text-xs font-semibold text-auditart-gray">
+                          Domicilio paciente
+                        </span>
+                        <input
+                          type="text"
+                          value={domicilio}
+                          onChange={(e) => setDomicilio(e.target.value)}
+                          placeholder="Calle, número, localidad"
+                          className="input-modern w-full px-3 py-2 text-sm"
                         />
                       </label>
                       <label className="block">
