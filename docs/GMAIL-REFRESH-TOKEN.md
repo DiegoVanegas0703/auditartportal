@@ -166,6 +166,7 @@ Plantilla: [`.env.example`](../.env.example). **No commitear** `.env` con secret
 |---------|-----------|
 | Playground no muestra refresh token | Prompt = **Consent**, Access type = **Offline**, y revocar acceso previo de la app en la cuenta Google antes de reautorizar. |
 | `invalid_grant` tras guardar | Reiniciar la API; confirmar que el Client ID del Playground es el mismo que en User Secrets. |
+| `invalid_grant` después de días funcionando | App OAuth en **Testing**: el token vence a los 7 días. Regenerarlo y, para que no vuelva a pasar, pasar la app a **Interno** (Workspace). |
 | API sigue en stub / no lee mail | `Gmail:Enabled` debe ser `true` y reiniciar. |
 | URI mismatch en Google | El redirect URI del cliente OAuth debe ser exactamente `https://developers.google.com/oauthplayground`. |
 | App en modo Testing | Solo usuarios de prueba listados en la pantalla de consentimiento pueden autorizar. |
@@ -191,6 +192,10 @@ Plantilla: [`.env.example`](../.env.example). **No commitear** `.env` con secret
 7. Si aparece “app no verificada”, usá **Avanzado** → **Ir a auditartdemo (no seguro)** — eso solo aplica en Testing + test user.
 
 En Testing podés tener hasta **100** usuarios de prueba; no hace falta verificación de Google.
+
+> **Importante:** con la app en **Testing**, Google **vence el refresh token a los 7 días**. Pasado ese plazo
+> la sincronización y el envío fallan con `invalid_grant` y hay que regenerar el token. Para algo estable
+> usá la **Opción B (Interno)**: los tokens no vencen por tiempo.
 
 ### Opción B — Si Auditart tiene Google Workspace
 

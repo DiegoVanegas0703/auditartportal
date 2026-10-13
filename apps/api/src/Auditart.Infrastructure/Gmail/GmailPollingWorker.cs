@@ -1,5 +1,6 @@
 using Auditart.Application.Abstractions;
 using Auditart.Application.Triage;
+using Google.Apis.Auth.OAuth2.Responses;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -81,6 +82,13 @@ public sealed class GmailPollingWorker : BackgroundService
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             // Apagado normal de la aplicación.
+        }
+        catch (TokenResponseException ex) when (ex.Error?.Error == "invalid_grant")
+        {
+            _logger.LogError(
+                "Gmail rechazó el refresh token (invalid_grant): venció o fue revocado. " +
+                "Generá uno nuevo (docs/GMAIL-REFRESH-TOKEN.md) y actualizá Gmail__RefreshToken en .env. " +
+                "Con la app OAuth en modo Testing, Google lo vence a los 7 días.");
         }
         catch (Exception ex)
         {
