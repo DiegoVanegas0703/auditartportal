@@ -1235,8 +1235,7 @@ namespace Auditart.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(320)");
 
                     b.Property<string>("EmailSignatureHtml")
-                        .HasMaxLength(20000)
-                        .HasColumnType("character varying(20000)");
+                        .HasColumnType("text");
 
                     b.Property<string>("GoogleSubjectId")
                         .HasMaxLength(128)

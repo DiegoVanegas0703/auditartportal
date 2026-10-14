@@ -125,8 +125,8 @@ public class AuthService
 
     public async Task<AuthUserDto> UpdateSignatureAsync(Guid userId, string? signatureHtml, CancellationToken ct = default)
     {
-        if (signatureHtml is { Length: > 20000 })
-            throw new InvalidOperationException("La firma es demasiado larga.");
+        if (signatureHtml is { Length: > 1_500_000 })
+            throw new InvalidOperationException("La firma es demasiado pesada. Usá imágenes más livianas (máx. ~1 MB en total).");
 
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct)
             ?? throw new UnauthorizedAccessException("Usuario no encontrado.");

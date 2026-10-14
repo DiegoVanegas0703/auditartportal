@@ -313,36 +313,17 @@ public sealed class GmailInboxService : IGmailInboxService, IDisposable
             sb.Append("References: ").Append(request.References).Append("\r\n");
         sb.Append("MIME-Version: 1.0\r\n");
 
+        var bodyPart = BuildBodyPart(request);
+
         if (attachments.Count == 0)
         {
-            if (!string.IsNullOrWhiteSpace(request.BodyHtml))
-            {
-                sb.Append("Content-Type: text/html; charset=UTF-8\r\n\r\n");
-                sb.Append(request.BodyHtml);
-            }
-            else
-            {
-                sb.Append("Content-Type: text/plain; charset=UTF-8\r\n\r\n");
-                sb.Append(request.BodyText);
-            }
-
+            sb.Append(bodyPart);
             return sb.ToString();
         }
 
         sb.Append("Content-Type: multipart/mixed; boundary=\"").Append(boundary).Append("\"\r\n\r\n");
         sb.Append("--").Append(boundary).Append("\r\n");
-        if (!string.IsNullOrWhiteSpace(request.BodyHtml))
-        {
-            sb.Append("Content-Type: text/html; charset=UTF-8\r\n");
-            sb.Append("Content-Transfer-Encoding: 8bit\r\n\r\n");
-            sb.Append(request.BodyHtml).Append("\r\n");
-        }
-        else
-        {
-            sb.Append("Content-Type: text/plain; charset=UTF-8\r\n");
-            sb.Append("Content-Transfer-Encoding: 8bit\r\n\r\n");
-            sb.Append(request.BodyText).Append("\r\n");
-        }
+        sb.Append(bodyPart).Append("\r\n");
 
         foreach (var attachment in attachments)
         {
@@ -362,6 +343,80 @@ public sealed class GmailInboxService : IGmailInboxService, IDisposable
         }
 
         sb.Append("--").Append(boundary).Append("--\r\n");
+        return sb.ToString();
+    }
+
+    private static readonly Regex DataImageSrc = new(
+        "src\\s*=\\s*([\"'])data:(image/[a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=\\s]+)\\1",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>
+    /// Headers + contenido del cuerpo. Las imágenes data: del HTML (p. ej. logo de la firma)
+    /// se envían como partes inline con Content-ID: Gmail/Outlook bloquean data: URIs.
+    /// </summary>
+    private static string BuildBodyPart(GmailSendRequest request)
+    {
+        var sb = new StringBuilder();
+        if (string.IsNullOrWhiteSpace(request.BodyHtml))
+        {
+            sb.Append("Content-Type: text/plain; charset=UTF-8\r\n");
+            sb.Append("Content-Transfer-Encoding: 8bit\r\n\r\n");
+            sb.Append(request.BodyText);
+            return sb.ToString();
+        }
+
+        var inline = new List<(string Cid, string ContentType, string Base64)>();
+        var html = DataImageSrc.Replace(request.BodyHtml, match =>
+        {
+            var base64 = Regex.Replace(match.Groups[3].Value, "\\s+", string.Empty);
+            var existing = inline.FindIndex(i => i.Base64 == base64);
+            string cid;
+            if (existing >= 0)
+            {
+                cid = inline[existing].Cid;
+            }
+            else
+            {
+                cid = $"img{inline.Count + 1}.{Guid.NewGuid():N}@auditart";
+                inline.Add((cid, match.Groups[2].Value.ToLowerInvariant(), base64));
+            }
+            var quote = match.Groups[1].Value;
+            return $"src={quote}cid:{cid}{quote}";
+        });
+
+        if (inline.Count == 0)
+        {
+            sb.Append("Content-Type: text/html; charset=UTF-8\r\n");
+            sb.Append("Content-Transfer-Encoding: 8bit\r\n\r\n");
+            sb.Append(html);
+            return sb.ToString();
+        }
+
+        var related = $"auditart_rel_{Guid.NewGuid():N}";
+        sb.Append("Content-Type: multipart/related; boundary=\"").Append(related).Append("\"\r\n\r\n");
+        sb.Append("--").Append(related).Append("\r\n");
+        sb.Append("Content-Type: text/html; charset=UTF-8\r\n");
+        sb.Append("Content-Transfer-Encoding: 8bit\r\n\r\n");
+        sb.Append(html).Append("\r\n");
+
+        foreach (var (cid, contentType, base64) in inline)
+        {
+            byte[] bytes;
+            try { bytes = Convert.FromBase64String(base64); }
+            catch (FormatException) { continue; }
+
+            var ext = contentType.Split('/')[1].Split('+')[0];
+            var name = $"{cid.Split('.')[0]}.{ext}";
+            sb.Append("--").Append(related).Append("\r\n");
+            sb.Append("Content-Type: ").Append(contentType).Append("; name=\"").Append(name).Append("\"\r\n");
+            sb.Append("Content-Transfer-Encoding: base64\r\n");
+            sb.Append("Content-ID: <").Append(cid).Append(">\r\n");
+            sb.Append("Content-Disposition: inline; filename=\"").Append(name).Append("\"\r\n\r\n");
+            sb.Append(Convert.ToBase64String(bytes, Base64FormattingOptions.InsertLineBreaks));
+            sb.Append("\r\n");
+        }
+
+        sb.Append("--").Append(related).Append("--");
         return sb.ToString();
     }
 

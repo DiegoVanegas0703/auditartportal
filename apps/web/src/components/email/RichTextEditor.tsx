@@ -1,3 +1,4 @@
+import Image from '@tiptap/extension-image'
 import Link from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
 import TextAlign from '@tiptap/extension-text-align'
@@ -9,7 +10,9 @@ import {
   AlignLeft,
   AlignRight,
   Bold,
+  ImagePlus,
   Italic,
+  Loader2,
   Link2,
   List,
   ListOrdered,
@@ -17,25 +20,39 @@ import {
   Underline as UnderlineIcon,
   Undo2,
 } from 'lucide-react'
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { fileToResizedDataUrl } from './imageUtils'
 import { htmlToPlainText } from './signature'
+
+const DEFAULT_IMAGE_WIDTH = 200
 
 export function RichTextEditor({
   valueHtml,
   onChange,
   placeholder = 'Escribí el mensaje…',
   minHeightClass = 'min-h-[140px]',
+  allowImages = false,
 }: {
   valueHtml: string
   onChange: (next: { html: string; text: string }) => void
   placeholder?: string
   minHeightClass?: string
+  allowImages?: boolean
 }) {
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [imageBusy, setImageBusy] = useState(false)
+  const [imageError, setImageError] = useState('')
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
       StarterKit,
       Underline,
+      Image.configure({
+        inline: true,
+        allowBase64: true,
+        resize: { enabled: true, alwaysPreserveAspectRatio: true, minWidth: 24, minHeight: 24 },
+        HTMLAttributes: { style: 'max-width:100%;height:auto;' },
+      }),
       Link.configure({
         openOnClick: false,
         HTMLAttributes: { class: 'text-auditart-blue underline' },
@@ -79,6 +96,31 @@ export function RichTextEditor({
       return
     }
     editor.chain().focus().extendMarkRange('link').setLink({ href: url.trim() }).run()
+  }
+
+  const insertImage = async (file: File | undefined) => {
+    if (!file) return
+    setImageBusy(true)
+    setImageError('')
+    try {
+      const { src, width, height } = await fileToResizedDataUrl(file)
+      const displayWidth = Math.min(width, DEFAULT_IMAGE_WIDTH)
+      editor
+        .chain()
+        .focus()
+        .setImage({
+          src,
+          alt: file.name.replace(/\.[^.]+$/, ''),
+          width: displayWidth,
+          height: Math.round((height * displayWidth) / width),
+        })
+        .run()
+    } catch (e) {
+      setImageError(e instanceof Error ? e.message : 'No se pudo insertar la imagen.')
+    } finally {
+      setImageBusy(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
   }
 
   return (
@@ -146,6 +188,24 @@ export function RichTextEditor({
         <ToolbarBtn active={editor.isActive('link')} onClick={setLink} title="Enlace">
           <Link2 size={14} />
         </ToolbarBtn>
+        {allowImages && (
+          <>
+            <ToolbarBtn
+              onClick={() => fileInputRef.current?.click()}
+              title="Insertar imagen (logo)"
+              disabled={imageBusy}
+            >
+              {imageBusy ? <Loader2 size={14} className="animate-spin" /> : <ImagePlus size={14} />}
+            </ToolbarBtn>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/gif,image/webp"
+              className="hidden"
+              onChange={(e) => void insertImage(e.target.files?.[0])}
+            />
+          </>
+        )}
         <span className="mx-1 w-px self-stretch bg-gray-200" />
         <ToolbarBtn
           onClick={() => editor.chain().focus().undo().run()}
@@ -163,6 +223,9 @@ export function RichTextEditor({
         </ToolbarBtn>
       </div>
       <EditorContent editor={editor} />
+      {imageError && (
+        <p className="border-t border-red-100 bg-red-50 px-3 py-1.5 text-xs text-red-700">{imageError}</p>
+      )}
     </div>
   )
 }

@@ -10,6 +10,7 @@ import {
   Plus,
   RefreshCw,
   RotateCcw,
+  Search,
   Sparkles,
   Tag,
   Trash2,
@@ -72,6 +73,8 @@ export function TriagePage() {
   const [availableTags, setAvailableTags] = useState<string[]>([])
   const [view, setView] = useState<'pending' | 'ignored'>('pending')
   const [tagFilter, setTagFilter] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const [search, setSearch] = useState('')
   const [listLoading, setListLoading] = useState(true)
   const [detailLoading, setDetailLoading] = useState(false)
   const [selectedId, setSelectedId] = useState('')
@@ -111,6 +114,7 @@ export function TriagePage() {
         15,
         view === 'ignored',
         tagFilter || undefined,
+        search || undefined,
       )
       setRequests(result.items.map(mapRequestSummary))
       setPage(result.page)
@@ -125,7 +129,15 @@ export function TriagePage() {
     } finally {
       if (!silent) setListLoading(false)
     }
-  }, [page, view, tagFilter])
+  }, [page, view, tagFilter, search])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSearch(searchInput.trim())
+      setPage(1)
+    }, 400)
+    return () => window.clearTimeout(timer)
+  }, [searchInput])
 
   const loadDetail = useCallback(async (requestId: string) => {
     if (!requestId) {
@@ -550,6 +562,30 @@ export function TriagePage() {
               >
                 Ignorados ({ignoredCount})
               </button>
+            </div>
+
+            <div className="relative mb-2">
+              <Search
+                size={14}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-auditart-muted"
+              />
+              <input
+                type="search"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="Buscar por asunto, remitente o contenido…"
+                className="input-modern w-full py-2 pl-8 pr-8 text-xs"
+              />
+              {searchInput && (
+                <button
+                  type="button"
+                  onClick={() => setSearchInput('')}
+                  title="Limpiar búsqueda"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-auditart-muted hover:text-auditart-navy"
+                >
+                  <X size={14} />
+                </button>
+              )}
             </div>
 
             <select

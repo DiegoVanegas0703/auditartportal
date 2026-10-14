@@ -66,7 +66,12 @@ function SignatureCard() {
         onChange={({ html: next }) => setHtml(next)}
         placeholder="Ej.: Nombre Apellido · Auditoría médica · Auditart · Tel. 11 1234-5678"
         minHeightClass="min-h-[120px]"
+        allowImages
       />
+      <p className="mt-1.5 text-[11px] text-auditart-muted">
+        Usá el botón de imagen para cargar el logo (PNG o JPG). Se reduce automáticamente; podés
+        ajustar su tamaño arrastrando las esquinas.
+      </p>
 
       {html && (
         <div className="mt-4">

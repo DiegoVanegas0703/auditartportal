@@ -132,7 +132,8 @@ public sealed class EmailConversationService
         bool ignored,
         string? tag,
         UserRole callerRole,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? search = null)
     {
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 5, 50);
@@ -162,6 +163,18 @@ public sealed class EmailConversationService
             .Where(r => r.State == state && accessibleChannels.Contains(r.Channel));
         if (normalizedTag is not null)
             query = query.Where(r => r.Tags.Contains(normalizedTag));
+
+        var term = search?.Trim().ToLower();
+        if (!string.IsNullOrEmpty(term))
+        {
+            query = query.Where(r =>
+                r.Subject.ToLower().Contains(term)
+                || r.Tags.Contains(term)
+                || r.Threads.Any(t => t.Messages.Any(m =>
+                    m.FromAddress.ToLower().Contains(term)
+                    || m.Subject.ToLower().Contains(term)
+                    || m.BodyText.ToLower().Contains(term))));
+        }
 
         var total = await query.CountAsync(ct);
         var totalPages = Math.Max(1, (int)Math.Ceiling(total / (double)pageSize));

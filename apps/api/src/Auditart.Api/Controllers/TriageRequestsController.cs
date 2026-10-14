@@ -39,10 +39,11 @@ public sealed class TriageRequestsController : ControllerBase
         [FromQuery] int pageSize = 15,
         [FromQuery] bool ignored = false,
         [FromQuery] string? tag = null,
+        [FromQuery] string? q = null,
         CancellationToken ct = default)
     {
         if (!IsJefaturaOrAdmin()) return Forbid();
-        return Ok(await _conversations.ListAsync(page, pageSize, ignored, tag, GetRole(), ct));
+        return Ok(await _conversations.ListAsync(page, pageSize, ignored, tag, GetRole(), ct, q));
     }
 
     [HttpGet("{requestId:guid}")]

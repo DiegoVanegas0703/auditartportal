@@ -507,13 +507,14 @@ export const triageApi = {
     if (tag) params.set('tag', tag)
     return apiFetch<PagedEmailsDto>(`/api/triage/emails?${params}`)
   },
-  listRequests: (page = 1, pageSize = 15, ignored = false, tag?: string) => {
+  listRequests: (page = 1, pageSize = 15, ignored = false, tag?: string, q?: string) => {
     const params = new URLSearchParams({
       page: String(page),
       pageSize: String(pageSize),
       ignored: String(ignored),
     })
     if (tag) params.set('tag', tag)
+    if (q) params.set('q', q)
     return apiFetch<PagedRequestsDto>(`/api/triage/requests?${params}`)
   },
   getRequest: (requestId: string) =>
