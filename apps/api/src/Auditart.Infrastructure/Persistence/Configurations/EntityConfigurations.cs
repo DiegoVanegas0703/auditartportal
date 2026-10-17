@@ -34,6 +34,36 @@ public class AseguradoraConfiguration : IEntityTypeConfiguration<Aseguradora>
     }
 }
 
+public class WhatsAppOutboundLogConfiguration : IEntityTypeConfiguration<WhatsAppOutboundLog>
+{
+    public void Configure(EntityTypeBuilder<WhatsAppOutboundLog> builder)
+    {
+        builder.ToTable("whatsapp_outbound_logs");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.PhoneE164).HasMaxLength(32).IsRequired();
+        builder.Property(x => x.TemplateName).HasMaxLength(120).IsRequired();
+        builder.Property(x => x.BodyPreview).HasMaxLength(500);
+        builder.Property(x => x.Status).HasMaxLength(32).IsRequired();
+        builder.Property(x => x.ProviderMessageId).HasMaxLength(128);
+        builder.Property(x => x.Error).HasMaxLength(2000);
+        builder.HasIndex(x => x.AuditServiceId);
+        builder.HasIndex(x => x.SentAtUtc);
+    }
+}
+
+public class AiAssistantConfiguration : IEntityTypeConfiguration<AiAssistant>
+{
+    public void Configure(EntityTypeBuilder<AiAssistant> builder)
+    {
+        builder.ToTable("ai_assistants");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Name).HasMaxLength(160).IsRequired();
+        builder.Property(x => x.Description).HasMaxLength(500);
+        builder.Property(x => x.ExternalGemUrl).HasMaxLength(1000);
+        builder.HasIndex(x => x.Name).IsUnique();
+    }
+}
+
 public class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshToken>
 {
     public void Configure(EntityTypeBuilder<RefreshToken> builder)

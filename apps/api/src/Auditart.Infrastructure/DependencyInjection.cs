@@ -7,7 +7,13 @@ using Auditart.Application.Prestadores;
 using Auditart.Infrastructure.Auth;
 using Auditart.Infrastructure.Gmail;
 using Auditart.Infrastructure.Persistence;
+using Auditart.Application.Ai;
+using Auditart.Application.Formularios;
+using Auditart.Application.WhatsApp;
+using Auditart.Infrastructure.Gemini;
+using Auditart.Infrastructure.Pdf;
 using Auditart.Infrastructure.Storage;
+using Auditart.Infrastructure.WhatsApp;
 using Auditart.Application.Chronic;
 using Auditart.Application.Reports;
 using Auditart.Application.Sla;
@@ -53,6 +59,15 @@ public static class DependencyInjection
         services.Configure<SlaAlertOptions>(configuration.GetSection(SlaAlertOptions.SectionName));
         services.AddHostedService<SlaAlertWorker>();
         services.AddScoped<AuthService>();
+        services.AddSingleton<IAcroFormFiller, AcroFormFiller>();
+        services.AddScoped<FormularioPdfService>();
+        services.Configure<WhatsAppOptions>(configuration.GetSection(WhatsAppOptions.SectionName));
+        services.Configure<GeminiOptions>(configuration.GetSection(GeminiOptions.SectionName));
+        services.AddHttpClient(nameof(MetaWhatsAppSender));
+        services.AddHttpClient(nameof(AiAssistantService));
+        services.AddSingleton<IWhatsAppSender, MetaWhatsAppSender>();
+        services.AddScoped<WhatsAppNotifyService>();
+        services.AddScoped<AiAssistantService>();
 
         var jwtKey = configuration["Jwt:Key"]
             ?? throw new InvalidOperationException("Jwt:Key requerido.");

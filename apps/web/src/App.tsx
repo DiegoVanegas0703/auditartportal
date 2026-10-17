@@ -6,6 +6,7 @@ import { AuditProvider } from './context/AuditContext'
 import { useAuth } from './context/useAuth'
 import { AlertsPage } from './pages/AlertsPage'
 import { ArtsPage } from './pages/ArtsPage'
+import { AsistentePage } from './pages/AsistentePage'
 import { AuditDetailPage } from './pages/AuditDetailPage'
 import { BillingPage } from './pages/BillingPage'
 import { ChangePasswordPage } from './pages/ChangePasswordPage'
@@ -149,6 +150,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute requiredPermission="triage">
               <ArtsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="asistente"
+          element={
+            <ProtectedRoute requiredPermission="operationalBoard">
+              <AsistentePage />
             </ProtectedRoute>
           }
         />

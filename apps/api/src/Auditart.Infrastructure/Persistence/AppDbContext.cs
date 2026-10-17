@@ -25,6 +25,8 @@ public class AppDbContext : DbContext, Application.Abstractions.IAppDbContext
     public DbSet<EmailSendOutbox> EmailSendOutboxItems => Set<EmailSendOutbox>();
     public DbSet<GmailSyncState> GmailSyncStates => Set<GmailSyncState>();
     public DbSet<Aseguradora> Aseguradoras => Set<Aseguradora>();
+    public DbSet<WhatsAppOutboundLog> WhatsAppOutboundLogs => Set<WhatsAppOutboundLog>();
+    public DbSet<AiAssistant> AiAssistants => Set<AiAssistant>();
 
     IQueryable<User> Application.Abstractions.IAppDbContext.Users => Users;
     IQueryable<AuditService> Application.Abstractions.IAppDbContext.AuditServices => AuditServices;
@@ -44,6 +46,8 @@ public class AppDbContext : DbContext, Application.Abstractions.IAppDbContext
     IQueryable<EmailSendOutbox> Application.Abstractions.IAppDbContext.EmailSendOutbox => EmailSendOutboxItems;
     IQueryable<GmailSyncState> Application.Abstractions.IAppDbContext.GmailSyncStates => GmailSyncStates;
     IQueryable<Aseguradora> Application.Abstractions.IAppDbContext.Aseguradoras => Aseguradoras;
+    IQueryable<WhatsAppOutboundLog> Application.Abstractions.IAppDbContext.WhatsAppOutboundLogs => WhatsAppOutboundLogs;
+    IQueryable<AiAssistant> Application.Abstractions.IAppDbContext.AiAssistants => AiAssistants;
 
     public new void Add<T>(T entity) where T : class => Set<T>().Add(entity);
     public new void Remove<T>(T entity) where T : class => Set<T>().Remove(entity);

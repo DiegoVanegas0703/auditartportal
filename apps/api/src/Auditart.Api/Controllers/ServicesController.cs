@@ -2,8 +2,10 @@ using System.Security.Claims;
 using Auditart.Application.Abstractions;
 using Auditart.Application.Auth;
 using Auditart.Application.Chronic;
+using Auditart.Application.Formularios;
 using Auditart.Application.Sla;
 using Auditart.Application.Triage;
+using Auditart.Application.WhatsApp;
 using Auditart.Domain.Entities;
 using Auditart.Domain.Enums;
 using Auditart.Domain.Exceptions;
@@ -23,19 +25,25 @@ public class ServicesController : ControllerBase
     private readonly ChronicServiceService _chronic;
     private readonly SlaRuleService _slaRules;
     private readonly IObjectStorage _storage;
+    private readonly FormularioPdfService _formularios;
+    private readonly WhatsAppNotifyService _whatsApp;
 
     public ServicesController(
         IAppDbContext db,
         EmailConversationService conversations,
         ChronicServiceService chronic,
         SlaRuleService slaRules,
-        IObjectStorage storage)
+        IObjectStorage storage,
+        FormularioPdfService formularios,
+        WhatsAppNotifyService whatsApp)
     {
         _db = db;
         _conversations = conversations;
         _chronic = chronic;
         _slaRules = slaRules;
         _storage = storage;
+        _formularios = formularios;
+        _whatsApp = whatsApp;
     }
 
     [HttpGet]
@@ -479,6 +487,7 @@ public class ServicesController : ControllerBase
 
             service.TransitionTo(request.NextStatus, GetUserId(), request.Reason, deadline);
             await _db.SaveChangesAsync(ct);
+            await _whatsApp.TryAutoNotifyAsync(id, request.NextStatus, ct);
             return NoContent();
         }
         catch (DomainException ex)
@@ -599,6 +608,62 @@ public class ServicesController : ControllerBase
             return NotFound();
         }
         catch (DomainException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpGet("{id:guid}/formularios/{tipo}/prefill")]
+    public async Task<ActionResult<FormularioPrefillDto>> GetFormularioPrefill(
+        Guid id,
+        string tipo,
+        CancellationToken ct)
+    {
+        var role = GetRole();
+        if (!PermissionService.CanOperateBoard(role) && role is not (UserRole.Admin or UserRole.Jefatura))
+            return Forbid();
+
+        if (!FormularioPdfService.TryParseTipo(tipo, out var parsed))
+            return BadRequest(new { error = "Tipo de formulario inválido. Usá pmi, pme o pmr." });
+
+        try
+        {
+            return Ok(await _formularios.GetPrefillAsync(id, parsed, ct));
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("{id:guid}/formularios/{tipo}")]
+    public async Task<ActionResult<FormularioAttachmentDto>> GenerateFormulario(
+        Guid id,
+        string tipo,
+        [FromBody] FormularioGenerateRequest? body,
+        CancellationToken ct)
+    {
+        var role = GetRole();
+        if (!PermissionService.CanOperateBoard(role) && role is not (UserRole.Admin or UserRole.Jefatura))
+            return Forbid();
+
+        if (!FormularioPdfService.TryParseTipo(tipo, out var parsed))
+            return BadRequest(new { error = "Tipo de formulario inválido. Usá pmi, pme o pmr." });
+
+        try
+        {
+            var attachment = await _formularios.GenerateAsync(id, parsed, body?.Values, ct);
+            return Ok(attachment);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (InvalidOperationException ex)
         {
             return BadRequest(new { error = ex.Message });
         }

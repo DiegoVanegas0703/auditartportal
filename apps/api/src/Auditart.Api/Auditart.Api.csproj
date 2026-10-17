@@ -21,4 +21,11 @@
     <ProjectReference Include="..\Auditart.Infrastructure\Auditart.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="..\..\templates\formularios\**\*"
+             Link="templates\formularios\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

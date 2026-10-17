@@ -74,6 +74,7 @@ public static class DbSeeder
 
         await SeedSlaRulesAsync(db, logger);
         await SeedAseguradorasAsync(db, logger);
+        await SeedAiAssistantsAsync(db, logger);
 
         logger.LogInformation(
             "Seed de usuarios completado ({Created} nuevos, {Updated} con contraseña).",
@@ -114,6 +115,38 @@ public static class DbSeeder
             db.Aseguradoras.Add(Aseguradora.Create(nombre, cuit));
         await db.SaveChangesAsync();
         logger.LogInformation("Seed de ARTs: {Count} creadas.", seed.Length);
+    }
+
+    private static async Task SeedAiAssistantsAsync(AppDbContext db, ILogger logger)
+    {
+        if (await db.AiAssistants.AnyAsync()) return;
+
+        db.AiAssistants.Add(AiAssistant.Create(
+            "Asistente Auditart",
+            "Ayuda general sobre auditoría médica ART, redacción de correos y pasos del portal.",
+            """
+            Sos un asistente interno de Auditart (auditoría médica para ART en Argentina).
+            Respondé en español rioplatense, claro y conciso.
+            Ayudá a operadores con: redacción de correos, interpretación de estados del caso
+            (Rojo/Amarillo/Verde/Azul/Celeste), datos a pedir al paciente, y buenas prácticas.
+            No inventes datos clínicos ni autorizaciones. Si falta contexto, pedí aclaración.
+            """,
+            externalGemUrl: "https://gemini.google.com/app",
+            sortOrder: 1));
+
+        db.AiAssistants.Add(AiAssistant.Create(
+            "Redacción de correos",
+            "Borradores de mails a ART, prestadores y pacientes (abrir también en Gemini).",
+            """
+            Especialista en redactar correos profesionales para el circuito Auditart.
+            Pedí: destinatario (ART/prestador/paciente), objetivo y tono.
+            Devolvé asunto + cuerpo listo para pegar. Sin inventar códigos de autorización ni DNI.
+            """,
+            externalGemUrl: "https://gemini.google.com/app",
+            sortOrder: 2));
+
+        await db.SaveChangesAsync();
+        logger.LogInformation("Seed de asistentes IA: 2 creados.");
     }
 
     private static async Task SeedSlaRulesAsync(AppDbContext db, ILogger logger)

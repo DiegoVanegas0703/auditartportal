@@ -3,6 +3,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  FileText,
   Loader2,
   MessageCircle,
   Upload,
@@ -16,6 +17,7 @@ import {
   preciosApi,
   servicesApi,
   usersApi,
+  whatsappApi,
   type PrecioOptionDto,
   type PrestadorOptionDto,
   type ServiceAttachmentDto,
@@ -26,6 +28,7 @@ import { RichTextEditor } from '../components/email/RichTextEditor'
 import { SignatureHint } from '../components/email/SignatureHint'
 import { initialBodyWithSignature, isBodyEmpty } from '../components/email/signature'
 import { EmailTimeline } from '../components/email/EmailTimeline'
+import { FormularioPdfModal } from '../components/formularios/FormularioPdfModal'
 import { PrestadorDetailModal } from '../components/prestadores/PrestadorDetailModal'
 import { StatusBadge } from '../components/ui/StatusBadge'
 import { useAuth } from '../context/useAuth'
@@ -130,6 +133,8 @@ export function AuditDetailPage() {
   const [detailPrestadorId, setDetailPrestadorId] = useState<string | null>(null)
   const [serviceAttachments, setServiceAttachments] = useState<ServiceAttachmentDto[]>([])
   const [uploadBusy, setUploadBusy] = useState(false)
+  const [formularioOpen, setFormularioOpen] = useState(false)
+  const [whatsappBusy, setWhatsappBusy] = useState(false)
   const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null)
   const [fetchedAudit, setFetchedAudit] = useState<AuditRecord | null>(null)
   const [auditLoading, setAuditLoading] = useState(false)
@@ -1373,13 +1378,37 @@ export function AuditDetailPage() {
         <div className="flex flex-wrap gap-3 border-t border-gray-100 bg-gray-50/50 p-6">
           {FEATURES.whatsapp && (
             <button
-              onClick={() => showToast('WhatsApp enviado al paciente (simulado)')}
-              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-green-500/25 transition-all hover:shadow-lg"
+              type="button"
+              disabled={whatsappBusy || !id}
+              onClick={() => {
+                if (!id) return
+                setWhatsappBusy(true)
+                void whatsappApi
+                  .notifyService(id)
+                  .then((r) => showToast(`WhatsApp enviado a ${r.phone}`))
+                  .catch((e: unknown) =>
+                    showToast(e instanceof Error ? e.message : 'No se pudo enviar WhatsApp'),
+                  )
+                  .finally(() => setWhatsappBusy(false))
+              }}
+              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-green-500/25 transition-all hover:shadow-lg disabled:opacity-50"
             >
-              <MessageCircle size={16} />
+              {whatsappBusy ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <MessageCircle size={16} />
+              )}
               Avisar paciente (WS)
             </button>
           )}
+          <button
+            type="button"
+            onClick={() => setFormularioOpen(true)}
+            className="flex items-center gap-2 rounded-xl border-2 border-auditart-blue/30 bg-white px-5 py-2.5 text-sm font-semibold text-auditart-blue transition-all hover:border-auditart-blue hover:shadow-sm"
+          >
+            <FileText size={16} />
+            Formularios
+          </button>
           <label
             className={`flex cursor-pointer items-center gap-2 rounded-xl border-2 border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-auditart-navy transition-all hover:border-auditart-blue hover:shadow-sm ${
               uploadBusy ? 'pointer-events-none opacity-50' : ''
@@ -1404,6 +1433,18 @@ export function AuditDetailPage() {
             />
           </label>
         </div>
+
+        {formularioOpen && id && (
+          <FormularioPdfModal
+            serviceId={id}
+            onClose={() => setFormularioOpen(false)}
+            onGenerated={(attachment) => {
+              setFormularioOpen(false)
+              void loadServiceAttachments(id)
+              showToast(`Formulario generado: ${attachment.fileName}`)
+            }}
+          />
+        )}
 
         <DetailAccordion title="Documentos" defaultOpen={false}>
         <div className="p-6">

@@ -23,6 +23,8 @@ public interface IAppDbContext
     IQueryable<EmailSendOutbox> EmailSendOutbox { get; }
     IQueryable<GmailSyncState> GmailSyncStates { get; }
     IQueryable<Aseguradora> Aseguradoras { get; }
+    IQueryable<WhatsAppOutboundLog> WhatsAppOutboundLogs { get; }
+    IQueryable<AiAssistant> AiAssistants { get; }
 
     void Add<T>(T entity) where T : class;
     void Remove<T>(T entity) where T : class;

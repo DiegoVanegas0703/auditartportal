@@ -328,8 +328,8 @@ export function OperationalBoardPage() {
             <MessageCircle size={16} className="text-green-600" />
           </div>
           <p className="text-sm text-green-800">
-            <span className="font-semibold">WhatsApp simulado</span> — En producción se integrará
-            WhatsApp Cloud API para alertas de urgencia, turnos y SLA.
+            <span className="font-semibold">WhatsApp</span> — avisos al paciente desde el detalle
+            del caso (Meta Cloud API). Activá WhatsApp__Enabled en el servidor.
           </p>
         </div>
       )}

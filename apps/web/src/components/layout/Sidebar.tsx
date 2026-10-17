@@ -13,6 +13,7 @@ import {
   UserCog,
   Stethoscope,
   CircleDollarSign,
+  Sparkles,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
@@ -33,6 +34,7 @@ const navItems = [
   { to: '/doctores', icon: Stethoscope, label: 'Doctores', perm: 'reports' as const },
   { to: '/precios', icon: CircleDollarSign, label: 'Precios', perm: 'precios' as const },
   { to: '/arts', icon: Building2, label: 'ARTs', perm: 'triage' as const },
+  { to: '/asistente', icon: Sparkles, label: 'Asistente IA', perm: 'operationalBoard' as const },
   { to: '/facturacion', icon: FileSpreadsheet, label: 'Facturación', perm: 'billing' as const },
   { to: '/usuarios', icon: Users, label: 'Usuarios', perm: 'manageUsers' as const },
 ]

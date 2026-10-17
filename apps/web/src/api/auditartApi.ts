@@ -661,6 +661,51 @@ export interface ServiceAttachmentDto {
   createdAtUtc: string
 }
 
+export type FormularioTipo = 'pmi' | 'pme' | 'pmr'
+
+export interface AiAssistantDto {
+  id: string
+  name: string
+  description?: string | null
+  externalGemUrl?: string | null
+  supportsChat: boolean
+}
+
+export const aiApi = {
+  status: () => apiFetch<{ chatEnabled: boolean }>('/api/ai/status'),
+  listAssistants: () => apiFetch<AiAssistantDto[]>('/api/ai/assistants'),
+  chat: (assistantId: string, messages: { role: string; content: string }[]) =>
+    apiFetch<{ assistantId: string; assistantName: string; reply: string }>('/api/ai/chat', {
+      method: 'POST',
+      body: JSON.stringify({ assistantId, messages }),
+    }),
+}
+
+export const whatsappApi = {
+  status: () => apiFetch<{ enabled: boolean }>('/api/whatsapp/status'),
+  notifyService: (serviceId: string) =>
+    apiFetch<{ phone: string; logId: string }>(`/api/whatsapp/services/${serviceId}/notify`, {
+      method: 'POST',
+    }),
+}
+
+export interface FormularioFieldDto {
+  pdfField: string
+  label: string
+  kind: string
+  logicalKey?: string | null
+  page: number
+  order: number
+  value: string
+}
+
+export interface FormularioPrefillDto {
+  tipo: string
+  title: string
+  fileName: string
+  fields: FormularioFieldDto[]
+}
+
 export const servicesApi = {
   list: () => apiFetch<ApiService[]>('/api/services'),
   get: (id: string) => apiFetch<ApiService>(`/api/services/${id}`),
@@ -668,6 +713,13 @@ export const servicesApi = {
     apiFetch<ApiEmailRequestDetail>(`/api/services/${id}/correspondence`),
   listAttachments: (id: string) =>
     apiFetch<ServiceAttachmentDto[]>(`/api/services/${id}/attachments`),
+  getFormularioPrefill: (id: string, tipo: FormularioTipo) =>
+    apiFetch<FormularioPrefillDto>(`/api/services/${id}/formularios/${tipo}/prefill`),
+  generateFormulario: (id: string, tipo: FormularioTipo, values: Record<string, string>) =>
+    apiFetch<ServiceAttachmentDto>(`/api/services/${id}/formularios/${tipo}`, {
+      method: 'POST',
+      body: JSON.stringify({ values }),
+    }),
   uploadAttachments: (id: string, files: File[]) => {
     const form = new FormData()
     for (const file of files) {

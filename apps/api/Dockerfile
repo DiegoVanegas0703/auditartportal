@@ -11,6 +11,7 @@ COPY src/Auditart.Api/Auditart.Api.csproj src/Auditart.Api/
 RUN dotnet restore src/Auditart.Api/Auditart.Api.csproj
 
 COPY src/ ./src/
+COPY templates/ ./templates/
 RUN dotnet publish src/Auditart.Api/Auditart.Api.csproj -c Release -o /app/publish /p:UseAppHost=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
@@ -19,6 +20,7 @@ ENV ASPNETCORE_URLS=http://+:8080
 ENV ASPNETCORE_ENVIRONMENT=Production
 EXPOSE 8080
 COPY --from=build /app/publish .
-RUN mkdir -p /app/App_Data/uploads && chown -R app:app /app/App_Data
+COPY --from=build /src/templates /app/templates
+RUN mkdir -p /app/App_Data/uploads && chown -R app:app /app/App_Data /app/templates
 USER app
 ENTRYPOINT ["dotnet", "Auditart.Api.dll"]
