@@ -14,6 +14,8 @@ export function NuevoPacienteModal({ onClose }: { onClose: () => void }) {
   const [telefono, setTelefono] = useState('')
   const [email, setEmail] = useState('')
   const [domicilio, setDomicilio] = useState('')
+  const [localidad, setLocalidad] = useState('')
+  const [provincia, setProvincia] = useState('')
   const [existente, setExistente] = useState<PacienteLookupDto | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -26,12 +28,18 @@ export function NuevoPacienteModal({ onClose }: { onClose: () => void }) {
     setTelefono(p.telefono ?? '')
     setEmail(p.email ?? '')
     setDomicilio(p.domicilio ?? '')
+    setLocalidad(p.localidad ?? '')
+    setProvincia(p.provincia ?? '')
   }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!nombre.trim() || !dni.trim()) {
       setError('Nombre y DNI son obligatorios.')
+      return
+    }
+    if (!domicilio.trim() || !localidad.trim() || !provincia.trim()) {
+      setError('Domicilio, localidad y provincia son obligatorios.')
       return
     }
     setBusy(true)
@@ -44,7 +52,9 @@ export function NuevoPacienteModal({ onClose }: { onClose: () => void }) {
         numeroSiniestro: numeroSiniestro.trim() || undefined,
         telefono: telefono.trim() || undefined,
         email: email.trim() || undefined,
-        domicilio: domicilio.trim() || undefined,
+        domicilio: domicilio.trim(),
+        localidad: localidad.trim(),
+        provincia: provincia.trim(),
       })
       navigate(`/pacientes/${result.paciente.id}`, {
         state: result.created ? { pacienteNuevo: true } : { pacienteExistente: true },
@@ -122,12 +132,31 @@ export function NuevoPacienteModal({ onClose }: { onClose: () => void }) {
             />
           </label>
           <label className="text-xs font-semibold text-auditart-gray sm:col-span-2">
-            Domicilio
+            Domicilio (calle y número) *
             <input
               value={domicilio}
               onChange={(e) => setDomicilio(e.target.value)}
-              placeholder="Calle, número, localidad"
+              placeholder="Calle y número"
               className="input-modern mt-1 w-full px-3 py-2 text-sm"
+              required
+            />
+          </label>
+          <label className="text-xs font-semibold text-auditart-gray">
+            Localidad *
+            <input
+              value={localidad}
+              onChange={(e) => setLocalidad(e.target.value)}
+              className="input-modern mt-1 w-full px-3 py-2 text-sm"
+              required
+            />
+          </label>
+          <label className="text-xs font-semibold text-auditart-gray">
+            Provincia *
+            <input
+              value={provincia}
+              onChange={(e) => setProvincia(e.target.value)}
+              className="input-modern mt-1 w-full px-3 py-2 text-sm"
+              required
             />
           </label>
           <label className="text-xs font-semibold text-auditart-gray">
@@ -139,7 +168,7 @@ export function NuevoPacienteModal({ onClose }: { onClose: () => void }) {
             />
           </label>
           <label className="text-xs font-semibold text-auditart-gray">
-            Email
+            Email (opcional)
             <input
               type="email"
               value={email}

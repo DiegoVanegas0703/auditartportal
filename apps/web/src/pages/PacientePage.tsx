@@ -55,6 +55,8 @@ export function PacientePage() {
   const [editArt, setEditArt] = useState('')
   const [editSiniestro, setEditSiniestro] = useState('')
   const [editDomicilio, setEditDomicilio] = useState('')
+  const [editLocalidad, setEditLocalidad] = useState('')
+  const [editProvincia, setEditProvincia] = useState('')
 
   const load = async (pacienteId: string) => {
     setLoading(true)
@@ -69,6 +71,8 @@ export function PacientePage() {
       setEditArt(dto.art ?? '')
       setEditSiniestro(dto.numeroSiniestro ?? '')
       setEditDomicilio(dto.domicilio ?? '')
+      setEditLocalidad(dto.localidad ?? '')
+      setEditProvincia(dto.provincia ?? '')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo cargar el paciente')
     } finally {
@@ -99,6 +103,10 @@ export function PacientePage() {
       setError('El nombre del paciente es obligatorio.')
       return
     }
+    if (!editDomicilio.trim() || !editLocalidad.trim() || !editProvincia.trim()) {
+      setError('Domicilio, localidad y provincia son obligatorios.')
+      return
+    }
     setEditBusy(true)
     setError(null)
     try {
@@ -109,7 +117,9 @@ export function PacientePage() {
         email: editEmail.trim() || undefined,
         art: editArt.trim() || undefined,
         numeroSiniestro: editSiniestro.trim() || undefined,
-        domicilio: editDomicilio.trim() || undefined,
+        domicilio: editDomicilio.trim(),
+        localidad: editLocalidad.trim(),
+        provincia: editProvincia.trim(),
       })
       setData(updated)
       setEditingPaciente(false)
@@ -187,6 +197,8 @@ export function PacientePage() {
                   setEditArt(data.art ?? '')
                   setEditSiniestro(data.numeroSiniestro ?? '')
                   setEditDomicilio(data.domicilio ?? '')
+                  setEditLocalidad(data.localidad ?? '')
+                  setEditProvincia(data.provincia ?? '')
                 }
                 setEditingPaciente((v) => !v)
               }}
@@ -273,12 +285,31 @@ export function PacientePage() {
             />
           </label>
           <label className="text-xs font-semibold text-auditart-gray md:col-span-2">
-            Domicilio
+            Domicilio (calle y número) *
             <input
               value={editDomicilio}
               onChange={(e) => setEditDomicilio(e.target.value)}
-              placeholder="Calle, número, localidad"
+              placeholder="Calle y número"
               className="input-modern mt-1 w-full px-3 py-2 text-sm"
+              required
+            />
+          </label>
+          <label className="text-xs font-semibold text-auditart-gray">
+            Localidad *
+            <input
+              value={editLocalidad}
+              onChange={(e) => setEditLocalidad(e.target.value)}
+              className="input-modern mt-1 w-full px-3 py-2 text-sm"
+              required
+            />
+          </label>
+          <label className="text-xs font-semibold text-auditart-gray">
+            Provincia *
+            <input
+              value={editProvincia}
+              onChange={(e) => setEditProvincia(e.target.value)}
+              className="input-modern mt-1 w-full px-3 py-2 text-sm"
+              required
             />
           </label>
           <button
@@ -301,9 +332,9 @@ export function PacientePage() {
           <Field label="DNI" value={data.dni} />
           <Field label="ART" value={data.art} />
           <Field label="Nombre" value={data.nombre} />
-          <div className="sm:col-span-3">
-            <Field label="Domicilio" value={data.domicilio} />
-          </div>
+          <Field label="Domicilio" value={data.domicilio} />
+          <Field label="Localidad" value={data.localidad} />
+          <Field label="Provincia" value={data.provincia} />
         </div>
       ) : null}
 

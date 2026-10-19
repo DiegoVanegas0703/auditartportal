@@ -227,6 +227,9 @@ public sealed class TriageRequestsController : ControllerBase
                 request.NumeroSiniestro,
                 request.TelefonoPaciente,
                 request.EmailPaciente,
+                request.Domicilio,
+                request.Localidad,
+                request.Provincia,
                 request.TipoServicio,
                 request.Especialidad,
                 request.Urgency,
@@ -235,16 +238,6 @@ public sealed class TriageRequestsController : ControllerBase
                 attachment?.ContentType,
                 attachment?.Length,
                 ct);
-
-            if (!string.IsNullOrWhiteSpace(request.Domicilio) && service.PacienteId is Guid pacienteId)
-            {
-                var paciente = await _db.Pacientes.FirstOrDefaultAsync(p => p.Id == pacienteId, ct);
-                if (paciente is not null)
-                {
-                    paciente.UpdateContact(null, null, null, null, request.Domicilio);
-                    await _db.SaveChangesAsync(ct);
-                }
-            }
 
             var operadorName = await _db.Users
                 .Where(u => u.Id == service.OperadorId)
@@ -358,7 +351,9 @@ public sealed record AssignRequestBody(
     ServiceType? TipoServicio = null,
     string? Especialidad = null,
     UrgencyLevel? Urgency = null,
-    string? Domicilio = null);
+    string? Domicilio = null,
+    string? Localidad = null,
+    string? Provincia = null);
 
 public sealed record ParseDenunciaBody(Guid? AttachmentId);
 
@@ -379,6 +374,8 @@ public sealed class AssignRequestJson
     public string? Especialidad { get; set; }
     public string? Urgency { get; set; }
     public string? Domicilio { get; set; }
+    public string? Localidad { get; set; }
+    public string? Provincia { get; set; }
 
     public static AssignRequestJson FromForm(IFormCollection form) => new()
     {
@@ -395,6 +392,8 @@ public sealed class AssignRequestJson
         Especialidad = form["especialidad"],
         Urgency = form["urgency"],
         Domicilio = form["domicilio"],
+        Localidad = form["localidad"],
+        Provincia = form["provincia"],
     };
 
     public AssignRequestBody ToBody() => new(
@@ -410,7 +409,9 @@ public sealed class AssignRequestJson
         string.IsNullOrWhiteSpace(TipoServicio) ? null : ParseEnum<ServiceType>(TipoServicio, nameof(TipoServicio)),
         Especialidad,
         string.IsNullOrWhiteSpace(Urgency) ? null : ParseEnum<UrgencyLevel>(Urgency, nameof(Urgency)),
-        Domicilio);
+        Domicilio,
+        Localidad,
+        Provincia);
 
     private static TEnum ParseEnum<TEnum>(string value, string fieldName)
         where TEnum : struct, Enum

@@ -168,6 +168,8 @@ public class PacienteConfiguration : IEntityTypeConfiguration<Paciente>
         builder.Property(x => x.Art).HasMaxLength(200);
         builder.Property(x => x.NumeroSiniestro).HasMaxLength(64);
         builder.Property(x => x.Domicilio).HasMaxLength(300);
+        builder.Property(x => x.Localidad).HasMaxLength(120);
+        builder.Property(x => x.Provincia).HasMaxLength(120);
         builder.HasIndex(x => new { x.DniNormalizado, x.NombreNormalizado });
         builder.HasIndex(x => x.DniNormalizado);
     }

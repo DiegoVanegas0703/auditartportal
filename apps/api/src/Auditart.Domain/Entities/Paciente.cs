@@ -21,6 +21,8 @@ public class Paciente : Entity
     public string? Art { get; private set; }
     public string? NumeroSiniestro { get; private set; }
     public string? Domicilio { get; private set; }
+    public string? Localidad { get; private set; }
+    public string? Provincia { get; private set; }
 
     public ICollection<AuditService> Prestaciones { get; private set; } = new List<AuditService>();
 
@@ -33,10 +35,12 @@ public class Paciente : Entity
         string? email = null,
         string? art = null,
         string? numeroSiniestro = null,
-        string? domicilio = null)
+        string? domicilio = null,
+        string? localidad = null,
+        string? provincia = null)
     {
         var entity = new Paciente();
-        entity.Apply(nombre, dni, telefono, email, art, numeroSiniestro, domicilio);
+        entity.Apply(nombre, dni, telefono, email, art, numeroSiniestro, domicilio, localidad, provincia);
         return entity;
     }
 
@@ -45,13 +49,18 @@ public class Paciente : Entity
         string? email,
         string? art,
         string? numeroSiniestro,
-        string? domicilio = null)
+        string? domicilio = null,
+        string? localidad = null,
+        string? provincia = null)
     {
         if (!string.IsNullOrWhiteSpace(telefono)) Telefono = telefono.Trim();
-        if (!string.IsNullOrWhiteSpace(email)) Email = email.Trim();
+        if (email is not null)
+            Email = string.IsNullOrWhiteSpace(email) ? null : email.Trim();
         if (!string.IsNullOrWhiteSpace(art)) Art = art.Trim();
         if (!string.IsNullOrWhiteSpace(numeroSiniestro)) NumeroSiniestro = numeroSiniestro.Trim();
         if (!string.IsNullOrWhiteSpace(domicilio)) Domicilio = domicilio.Trim();
+        if (!string.IsNullOrWhiteSpace(localidad)) Localidad = localidad.Trim();
+        if (!string.IsNullOrWhiteSpace(provincia)) Provincia = provincia.Trim();
         Touch();
     }
 
@@ -63,15 +72,17 @@ public class Paciente : Entity
         string? email,
         string? art,
         string? numeroSiniestro,
-        string? domicilio)
+        string? domicilio,
+        string? localidad,
+        string? provincia)
     {
-        Apply(nombre, dni, telefono, email, art, numeroSiniestro, domicilio);
+        Apply(nombre, dni, telefono, email, art, numeroSiniestro, domicilio, localidad, provincia);
         Touch();
     }
 
     public void ApplyIdentity(string nombre, string? dni)
     {
-        Apply(nombre, dni, Telefono, Email, Art, NumeroSiniestro, Domicilio);
+        Apply(nombre, dni, Telefono, Email, Art, NumeroSiniestro, Domicilio, Localidad, Provincia);
         Touch();
     }
 
@@ -82,9 +93,13 @@ public class Paciente : Entity
         string? email,
         string? art,
         string? numeroSiniestro,
-        string? domicilio)
+        string? domicilio,
+        string? localidad,
+        string? provincia)
     {
         Domicilio = string.IsNullOrWhiteSpace(domicilio) ? null : domicilio.Trim();
+        Localidad = string.IsNullOrWhiteSpace(localidad) ? null : localidad.Trim();
+        Provincia = string.IsNullOrWhiteSpace(provincia) ? null : provincia.Trim();
         Nombre = (nombre ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(Nombre))
             Nombre = "Sin identificar";

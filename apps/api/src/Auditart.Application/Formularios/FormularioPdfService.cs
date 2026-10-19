@@ -153,7 +153,10 @@ public sealed class FormularioPdfService
             ["dni"] = p?.Dni ?? service.Dni ?? string.Empty,
             ["telefono"] = p?.Telefono ?? service.TelefonoPaciente ?? string.Empty,
             ["email"] = p?.Email ?? service.EmailPaciente ?? string.Empty,
-            ["domicilio"] = p?.Domicilio ?? string.Empty,
+            ["domicilio"] = string.Join(
+                ", ",
+                new[] { p?.Domicilio, p?.Localidad, p?.Provincia }
+                    .Where(x => !string.IsNullOrWhiteSpace(x))),
             ["art"] = p?.Art ?? service.Art ?? string.Empty,
             ["numeroSiniestro"] = p?.NumeroSiniestro ?? service.NumeroSiniestro ?? string.Empty,
             ["especialidad"] = service.Especialidad ?? string.Empty,

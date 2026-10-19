@@ -382,6 +382,9 @@ public sealed class EmailConversationService
         string? numeroSiniestro,
         string? telefonoPaciente,
         string? emailPaciente,
+        string? domicilio,
+        string? localidad,
+        string? provincia,
         ServiceType? tipoServicio,
         string? especialidad,
         UrgencyLevel? urgency,
@@ -399,8 +402,12 @@ public sealed class EmailConversationService
             throw new InvalidOperationException("El número de siniestro es obligatorio al derivar.");
         if (string.IsNullOrWhiteSpace(telefonoPaciente))
             throw new InvalidOperationException("El teléfono del paciente es obligatorio al derivar.");
-        if (string.IsNullOrWhiteSpace(emailPaciente))
-            throw new InvalidOperationException("El correo del paciente es obligatorio al derivar.");
+        if (string.IsNullOrWhiteSpace(domicilio))
+            throw new InvalidOperationException("El domicilio del paciente es obligatorio al derivar.");
+        if (string.IsNullOrWhiteSpace(localidad))
+            throw new InvalidOperationException("La localidad del paciente es obligatoria al derivar.");
+        if (string.IsNullOrWhiteSpace(provincia))
+            throw new InvalidOperationException("La provincia del paciente es obligatoria al derivar.");
 
         var request = await _db.EmailRequests
             .Include(r => r.Threads)
@@ -454,7 +461,7 @@ public sealed class EmailConversationService
             emailRequestId: request.Id,
             numeroSiniestro: numeroSiniestro.Trim(),
             telefonoPaciente: telefonoPaciente.Trim(),
-            emailPaciente: emailPaciente.Trim());
+            emailPaciente: string.IsNullOrWhiteSpace(emailPaciente) ? null : emailPaciente.Trim());
 
         var rojoDeadline = await _slaRules.ComputeDeadlineAsync(
             queue,
@@ -463,6 +470,19 @@ public sealed class EmailConversationService
             ct);
         service.ApplySlaDeadline(rojoDeadline);
         await _pacientes.LinkServiceAsync(service, ct);
+
+        if (service.PacienteId is Guid pacienteId)
+        {
+            var pacienteEntity = await _db.Pacientes.FirstOrDefaultAsync(p => p.Id == pacienteId, ct);
+            pacienteEntity?.UpdateContact(
+                telefonoPaciente,
+                emailPaciente ?? string.Empty,
+                art,
+                numeroSiniestro,
+                domicilio,
+                localidad,
+                provincia);
+        }
 
         _db.Add(service);
         request.MarkAssigned(service.Id, assignedByUserId);

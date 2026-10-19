@@ -189,7 +189,5 @@ public sealed class ChronicServiceService
             throw new InvalidOperationException("El número de siniestro es obligatorio.");
         if (string.IsNullOrWhiteSpace(telefonoPaciente))
             throw new InvalidOperationException("El teléfono del paciente es obligatorio.");
-        if (string.IsNullOrWhiteSpace(emailPaciente))
-            throw new InvalidOperationException("El correo del paciente es obligatorio.");
     }
 }

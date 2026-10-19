@@ -18,6 +18,8 @@ export interface AssignDetails {
   telefonoPaciente?: string
   emailPaciente?: string
   domicilio?: string
+  localidad?: string
+  provincia?: string
   tipoServicio?: ServiceType
   especialidad?: string
   urgency?: UrgencyLevel

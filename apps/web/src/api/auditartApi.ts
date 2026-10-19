@@ -573,6 +573,8 @@ export const triageApi = {
       telefonoPaciente?: string
       emailPaciente?: string
       domicilio?: string
+      localidad?: string
+      provincia?: string
       tipoServicio?: ServiceType
       especialidad?: string
       urgency?: UrgencyLevel
@@ -590,6 +592,8 @@ export const triageApi = {
     if (details.telefonoPaciente) form.append('telefonoPaciente', details.telefonoPaciente)
     if (details.emailPaciente) form.append('emailPaciente', details.emailPaciente)
     if (details.domicilio) form.append('domicilio', details.domicilio)
+    if (details.localidad) form.append('localidad', details.localidad)
+    if (details.provincia) form.append('provincia', details.provincia)
     if (details.tipoServicio) form.append('tipoServicio', serviceTypeToApi(details.tipoServicio))
     if (details.especialidad) form.append('especialidad', details.especialidad)
     if (details.urgency) form.append('urgency', urgencyToApi(details.urgency))
@@ -1336,6 +1340,8 @@ export interface PacienteDto {
   art?: string | null
   numeroSiniestro?: string | null
   domicilio?: string | null
+  localidad?: string | null
+  provincia?: string | null
   prestacionesAbiertas: number
   prestaciones: PacientePrestacionDto[]
 }
@@ -1349,6 +1355,8 @@ export interface PacienteLookupDto {
   art?: string | null
   numeroSiniestro?: string | null
   domicilio?: string | null
+  localidad?: string | null
+  provincia?: string | null
 }
 
 export const pacientesApi = {
@@ -1363,6 +1371,8 @@ export const pacientesApi = {
     art?: string
     numeroSiniestro?: string
     domicilio?: string
+    localidad?: string
+    provincia?: string
   }) =>
     apiFetch<{ created: boolean; paciente: PacienteDto }>('/api/pacientes', {
       method: 'POST',
@@ -1374,6 +1384,8 @@ export const pacientesApi = {
         art: body.art || null,
         numeroSiniestro: body.numeroSiniestro || null,
         domicilio: body.domicilio || null,
+        localidad: body.localidad || null,
+        provincia: body.provincia || null,
       }),
     }),
   update: (
@@ -1386,6 +1398,8 @@ export const pacientesApi = {
       art?: string
       numeroSiniestro?: string
       domicilio?: string
+      localidad?: string
+      provincia?: string
     },
   ) =>
     apiFetch<PacienteDto>(`/api/pacientes/${id}`, {
@@ -1398,6 +1412,8 @@ export const pacientesApi = {
         art: body.art || null,
         numeroSiniestro: body.numeroSiniestro || null,
         domicilio: body.domicilio || null,
+        localidad: body.localidad || null,
+        provincia: body.provincia || null,
       }),
     }),
   createPrestacion: (

@@ -24,16 +24,20 @@ public sealed class PacienteService
         string? email,
         string? art,
         string? numeroSiniestro,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? domicilio = null,
+        string? localidad = null,
+        string? provincia = null)
     {
         var existing = await FindMatchAsync(nombre, dni, ct);
         if (existing is not null)
         {
-            existing.UpdateContact(telefono, email, art, numeroSiniestro);
+            existing.UpdateContact(telefono, email, art, numeroSiniestro, domicilio, localidad, provincia);
             return existing;
         }
 
-        var created = Paciente.Create(nombre, dni, telefono, email, art, numeroSiniestro);
+        var created = Paciente.Create(
+            nombre, dni, telefono, email, art, numeroSiniestro, domicilio, localidad, provincia);
         _db.Add(created);
         return created;
     }
@@ -85,6 +89,7 @@ public sealed class PacienteService
             throw new ArgumentException("El nombre del paciente es obligatorio.");
         if (Paciente.NormalizeDni(request.Dni) is null)
             throw new ArgumentException("El DNI del paciente es obligatorio.");
+        EnsureAddress(request.Domicilio, request.Localidad, request.Provincia);
 
         var existing = await FindMatchAsync(request.Nombre, request.Dni, ct);
         if (existing is not null)
@@ -97,7 +102,9 @@ public sealed class PacienteService
             request.Email,
             request.Art,
             request.NumeroSiniestro,
-            request.Domicilio);
+            request.Domicilio,
+            request.Localidad,
+            request.Provincia);
         _db.Add(created);
         await _db.SaveChangesAsync(ct);
         return new CreatePacienteResult(true, await GetAsync(created.Id, ct));
@@ -110,6 +117,7 @@ public sealed class PacienteService
 
         if (string.IsNullOrWhiteSpace(request.Nombre))
             throw new ArgumentException("El nombre del paciente es obligatorio.");
+        EnsureAddress(request.Domicilio, request.Localidad, request.Provincia);
 
         entity.Update(
             request.Nombre,
@@ -118,7 +126,9 @@ public sealed class PacienteService
             request.Email,
             request.Art,
             request.NumeroSiniestro,
-            request.Domicilio);
+            request.Domicilio,
+            request.Localidad,
+            request.Provincia);
 
         // Propagar a prestaciones abiertas (no cerradas en Celeste).
         var abiertas = await _db.AuditServices
@@ -194,6 +204,16 @@ public sealed class PacienteService
             await _db.SaveChangesAsync(ct);
     }
 
+    private static void EnsureAddress(string? domicilio, string? localidad, string? provincia)
+    {
+        if (string.IsNullOrWhiteSpace(domicilio))
+            throw new ArgumentException("El domicilio del paciente es obligatorio.");
+        if (string.IsNullOrWhiteSpace(localidad))
+            throw new ArgumentException("La localidad del paciente es obligatoria.");
+        if (string.IsNullOrWhiteSpace(provincia))
+            throw new ArgumentException("La provincia del paciente es obligatoria.");
+    }
+
     private static PacienteDto Map(Paciente p, IReadOnlyList<PacientePrestacionDto> prestaciones) =>
         new(
             p.Id,
@@ -205,7 +225,9 @@ public sealed class PacienteService
             p.NumeroSiniestro,
             prestaciones.Count(x => x.Status != AuditStatus.Celeste),
             prestaciones,
-            p.Domicilio);
+            p.Domicilio,
+            p.Localidad,
+            p.Provincia);
 
     /// <summary>Pacientes con ese DNI (para autocompletar formularios).</summary>
     public async Task<IReadOnlyList<PacienteLookupDto>> FindByDniAsync(string dni, CancellationToken ct)
@@ -218,7 +240,8 @@ public sealed class PacienteService
             .OrderByDescending(p => p.UpdatedAtUtc)
             .Take(5)
             .Select(p => new PacienteLookupDto(
-                p.Id, p.Nombre, p.Dni, p.Telefono, p.Email, p.Art, p.NumeroSiniestro, p.Domicilio))
+                p.Id, p.Nombre, p.Dni, p.Telefono, p.Email, p.Art, p.NumeroSiniestro,
+                p.Domicilio, p.Localidad, p.Provincia))
             .ToListAsync(ct);
     }
 }
@@ -233,7 +256,9 @@ public sealed record PacienteDto(
     string? NumeroSiniestro,
     int PrestacionesAbiertas,
     IReadOnlyList<PacientePrestacionDto> Prestaciones,
-    string? Domicilio = null);
+    string? Domicilio = null,
+    string? Localidad = null,
+    string? Provincia = null);
 
 public sealed record PacienteLookupDto(
     Guid Id,
@@ -243,7 +268,9 @@ public sealed record PacienteLookupDto(
     string? Email,
     string? Art,
     string? NumeroSiniestro,
-    string? Domicilio);
+    string? Domicilio,
+    string? Localidad = null,
+    string? Provincia = null);
 
 public sealed record PacientePrestacionDto(
     Guid Id,
@@ -279,4 +306,6 @@ public sealed record UpdatePacienteRequest(
     string? Email,
     string? Art,
     string? NumeroSiniestro,
-    string? Domicilio = null);
+    string? Domicilio = null,
+    string? Localidad = null,
+    string? Provincia = null);

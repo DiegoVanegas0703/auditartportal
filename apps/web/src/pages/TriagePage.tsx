@@ -94,6 +94,8 @@ export function TriagePage() {
   const [telefonoPaciente, setTelefonoPaciente] = useState('')
   const [emailPaciente, setEmailPaciente] = useState('')
   const [domicilio, setDomicilio] = useState('')
+  const [localidad, setLocalidad] = useState('')
+  const [provincia, setProvincia] = useState('')
   const [tipoServicio, setTipoServicio] = useState<ServiceType>('consultorio')
   const [especialidad, setEspecialidad] = useState('')
   const [urgency, setUrgency] = useState<UrgencyLevel>('alta')
@@ -201,6 +203,8 @@ export function TriagePage() {
     setTelefonoPaciente('')
     setEmailPaciente('')
     setDomicilio('')
+    setLocalidad('')
+    setProvincia('')
     setTipoServicio('consultorio')
     setEspecialidad('')
     setUrgency(detail.subject.toLowerCase().includes('urgent') ? 'critica' : 'alta')
@@ -329,8 +333,16 @@ export function TriagePage() {
       setError('El teléfono del paciente es obligatorio para derivar.')
       return
     }
-    if (!emailPaciente.trim()) {
-      setError('El correo del paciente es obligatorio para derivar.')
+    if (!domicilio.trim()) {
+      setError('El domicilio del paciente es obligatorio para derivar.')
+      return
+    }
+    if (!localidad.trim()) {
+      setError('La localidad del paciente es obligatoria para derivar.')
+      return
+    }
+    if (!provincia.trim()) {
+      setError('La provincia del paciente es obligatoria para derivar.')
       return
     }
     setBusy(true)
@@ -343,8 +355,10 @@ export function TriagePage() {
         art: art.trim(),
         numeroSiniestro: numeroSiniestro.trim(),
         telefonoPaciente: telefonoPaciente.trim(),
-        emailPaciente: emailPaciente.trim(),
-        domicilio: domicilio.trim() || undefined,
+        emailPaciente: emailPaciente.trim() || undefined,
+        domicilio: domicilio.trim(),
+        localidad: localidad.trim(),
+        provincia: provincia.trim(),
         tipoServicio,
         especialidad: especialidad.trim() || undefined,
         urgency,
@@ -944,6 +958,8 @@ export function TriagePage() {
                             if (p.telefono) setTelefonoPaciente(p.telefono)
                             if (p.email) setEmailPaciente(p.email)
                             if (p.domicilio) setDomicilio(p.domicilio)
+                            if (p.localidad) setLocalidad(p.localidad)
+                            if (p.provincia) setProvincia(p.provincia)
                           }}
                         />
                       </label>
@@ -981,7 +997,7 @@ export function TriagePage() {
                       </label>
                       <label className="block">
                         <span className="mb-1 block text-xs font-semibold text-auditart-gray">
-                          Correo paciente
+                          Correo paciente (opcional)
                         </span>
                         <input
                           type="email"
@@ -989,19 +1005,43 @@ export function TriagePage() {
                           onChange={(e) => setEmailPaciente(e.target.value)}
                           placeholder="paciente@ejemplo.com"
                           className="input-modern w-full px-3 py-2 text-sm"
-                          required
                         />
                       </label>
                       <label className="block sm:col-span-2">
                         <span className="mb-1 block text-xs font-semibold text-auditart-gray">
-                          Domicilio paciente
+                          Domicilio (calle y número)
                         </span>
                         <input
                           type="text"
                           value={domicilio}
                           onChange={(e) => setDomicilio(e.target.value)}
-                          placeholder="Calle, número, localidad"
+                          placeholder="Calle y número"
                           className="input-modern w-full px-3 py-2 text-sm"
+                          required
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="mb-1 block text-xs font-semibold text-auditart-gray">
+                          Localidad
+                        </span>
+                        <input
+                          type="text"
+                          value={localidad}
+                          onChange={(e) => setLocalidad(e.target.value)}
+                          className="input-modern w-full px-3 py-2 text-sm"
+                          required
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="mb-1 block text-xs font-semibold text-auditart-gray">
+                          Provincia
+                        </span>
+                        <input
+                          type="text"
+                          value={provincia}
+                          onChange={(e) => setProvincia(e.target.value)}
+                          className="input-modern w-full px-3 py-2 text-sm"
+                          required
                         />
                       </label>
                       <label className="block">

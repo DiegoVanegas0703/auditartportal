@@ -217,6 +217,8 @@ export function AuditProvider({ children }: { children: ReactNode }) {
         emailPaciente: details?.emailPaciente,
 
         domicilio: details?.domicilio,
+        localidad: details?.localidad,
+        provincia: details?.provincia,
 
         tipoServicio: details?.tipoServicio,
 

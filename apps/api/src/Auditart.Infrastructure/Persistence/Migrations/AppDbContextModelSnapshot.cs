@@ -820,6 +820,10 @@ namespace Auditart.Infrastructure.Persistence.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<string>("Localidad")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
                     b.Property<string>("Nombre")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -833,6 +837,10 @@ namespace Auditart.Infrastructure.Persistence.Migrations
                     b.Property<string>("NumeroSiniestro")
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Provincia")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
 
                     b.Property<string>("Telefono")
                         .HasMaxLength(32)
