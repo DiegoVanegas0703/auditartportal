@@ -54,6 +54,16 @@ public sealed class FormularioPdfService
                 {
                     value = lv;
                 }
+
+                IReadOnlyList<FormularioSelectOptionDto>? options = null;
+                if (string.Equals(f.Kind, "select", StringComparison.OrdinalIgnoreCase)
+                    && f.Options is { Count: > 0 })
+                {
+                    options = f.Options
+                        .Select(o => new FormularioSelectOptionDto(o.Value, o.Label))
+                        .ToList();
+                }
+
                 return new FormularioFieldDto(
                     f.PdfField,
                     f.Label,
@@ -61,7 +71,8 @@ public sealed class FormularioPdfService
                     f.LogicalKey,
                     f.Page,
                     f.Order,
-                    value);
+                    value,
+                    options);
             })
             .ToList();
 
@@ -81,6 +92,12 @@ public sealed class FormularioPdfService
         var merged = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var field in meta.Fields)
         {
+            if (string.Equals(field.Kind, "select", StringComparison.OrdinalIgnoreCase))
+            {
+                ApplySelect(field, values, merged);
+                continue;
+            }
+
             if (values is not null && values.TryGetValue(field.PdfField, out var fromUi))
             {
                 merged[field.PdfField] = fromUi ?? string.Empty;
@@ -153,10 +170,9 @@ public sealed class FormularioPdfService
             ["dni"] = p?.Dni ?? service.Dni ?? string.Empty,
             ["telefono"] = p?.Telefono ?? service.TelefonoPaciente ?? string.Empty,
             ["email"] = p?.Email ?? service.EmailPaciente ?? string.Empty,
-            ["domicilio"] = string.Join(
-                ", ",
-                new[] { p?.Domicilio, p?.Localidad, p?.Provincia }
-                    .Where(x => !string.IsNullOrWhiteSpace(x))),
+            ["domicilio"] = p?.Domicilio ?? string.Empty,
+            ["localidad"] = p?.Localidad ?? string.Empty,
+            ["provincia"] = p?.Provincia ?? string.Empty,
             ["art"] = p?.Art ?? service.Art ?? string.Empty,
             ["numeroSiniestro"] = p?.NumeroSiniestro ?? service.NumeroSiniestro ?? string.Empty,
             ["especialidad"] = service.Especialidad ?? string.Empty,
@@ -242,6 +258,34 @@ public sealed class FormularioPdfService
         return Path.Combine(root, file);
     }
 
+    private static void ApplySelect(
+        TemplateField field,
+        Dictionary<string, string>? values,
+        Dictionary<string, string> merged)
+    {
+        var clear = field.ClearFields ?? [];
+        foreach (var name in clear)
+            merged[name] = string.Empty;
+
+        if (values is null || !values.TryGetValue(field.PdfField, out var selected)
+            || string.IsNullOrWhiteSpace(selected))
+            return;
+
+        if (field.Options is null || field.Options.All(o => o.Value != selected))
+            return;
+
+        var mark = string.IsNullOrWhiteSpace(field.MarkValue) ? "X" : field.MarkValue;
+        // Checkboxes reales de AcroForm usan Yes/Off; las marcas dibujadas en texto usan X.
+        if (selected.StartsWith("checkbox_", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(mark, "X", StringComparison.OrdinalIgnoreCase))
+            mark = "Yes";
+
+        foreach (var name in clear)
+            merged[name] = selected.StartsWith("checkbox_", StringComparison.OrdinalIgnoreCase) ? "Off" : string.Empty;
+
+        merged[selected] = mark;
+    }
+
     private sealed class TemplateMeta
     {
         public string Template { get; set; } = string.Empty;
@@ -257,5 +301,14 @@ public sealed class FormularioPdfService
         public string? LogicalKey { get; set; }
         public int Page { get; set; }
         public int Order { get; set; }
+        public string? MarkValue { get; set; }
+        public List<string>? ClearFields { get; set; }
+        public List<TemplateOption>? Options { get; set; }
+    }
+
+    private sealed class TemplateOption
+    {
+        public string Value { get; set; } = string.Empty;
+        public string Label { get; set; } = string.Empty;
     }
 }

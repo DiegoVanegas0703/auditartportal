@@ -7,6 +7,8 @@ public enum FormularioTipo
     Pmr
 }
 
+public sealed record FormularioSelectOptionDto(string Value, string Label);
+
 public sealed record FormularioFieldDto(
     string PdfField,
     string Label,
@@ -14,7 +16,8 @@ public sealed record FormularioFieldDto(
     string? LogicalKey,
     int Page,
     int Order,
-    string Value);
+    string Value,
+    IReadOnlyList<FormularioSelectOptionDto>? Options = null);
 
 public sealed record FormularioPrefillDto(
     FormularioTipo Tipo,

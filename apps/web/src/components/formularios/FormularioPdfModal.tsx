@@ -78,7 +78,7 @@ export function FormularioPdfModal({
           <div>
             <h2 className="text-lg font-bold text-auditart-navy">Formularios PDF</h2>
             <p className="text-xs text-auditart-muted">
-              Prefill con datos del paciente. Revisá y generá el PDF adjunto al caso.
+              Prefill con datos del paciente. El PDF generado sigue editable como la plantilla.
             </p>
           </div>
           <button
@@ -127,17 +127,32 @@ export function FormularioPdfModal({
                   <label
                     key={f.pdfField}
                     className={`text-xs font-semibold text-auditart-gray ${
-                      f.kind === 'textarea' ? 'sm:col-span-2' : ''
+                      f.kind === 'textarea' || f.kind === 'select' ? 'sm:col-span-2' : ''
                     }`}
                   >
                     {f.label}
                     {f.logicalKey && (
                       <span className="ml-1 font-normal text-auditart-muted">(auto)</span>
                     )}
-                    {f.kind === 'checkbox' ? (
+                    {f.kind === 'select' ? (
+                      <select
+                        value={values[f.pdfField] ?? ''}
+                        onChange={(e) =>
+                          setValues((prev) => ({ ...prev, [f.pdfField]: e.target.value }))
+                        }
+                        className="input-modern mt-1 w-full px-3 py-2 text-sm font-normal"
+                      >
+                        <option value="">Seleccioná…</option>
+                        {(f.options ?? []).map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                    ) : f.kind === 'checkbox' ? (
                       <input
                         type="checkbox"
-                        checked={['1', 'true', 'yes', 'on', 'sí', 'si'].includes(
+                        checked={['1', 'true', 'yes', 'on', 'sí', 'si', 'x'].includes(
                           (values[f.pdfField] ?? '').toLowerCase(),
                         )}
                         onChange={(e) =>
@@ -192,7 +207,7 @@ export function FormularioPdfModal({
             ) : (
               <FileText size={14} />
             )}
-            Generar PDF
+            Generar PDF editable
           </button>
         </div>
       </div>

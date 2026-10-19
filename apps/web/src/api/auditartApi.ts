@@ -701,6 +701,7 @@ export interface FormularioFieldDto {
   page: number
   order: number
   value: string
+  options?: { value: string; label: string }[] | null
 }
 
 export interface FormularioPrefillDto {

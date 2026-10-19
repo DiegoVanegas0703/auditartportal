@@ -26,7 +26,8 @@ public sealed class AcroFormFiller : IAcroFormFiller
                 var value = raw ?? string.Empty;
                 if (field is PdfButtonFormField button)
                 {
-                    var on = IsChecked(value);
+                    // "X"/"Yes"/true → marcado; vacío/"Off" → desmarcado.
+                    var on = IsChecked(value) || string.Equals(value.Trim(), "X", StringComparison.OrdinalIgnoreCase);
                     ApplyCheckbox(button, on);
                 }
                 else
@@ -35,7 +36,7 @@ public sealed class AcroFormFiller : IAcroFormFiller
                 }
             }
 
-            form.FlattenFields();
+            // Mantener AcroForm editable (como la plantilla original).
         }
 
         return output.ToArray();
