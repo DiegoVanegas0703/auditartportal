@@ -45,6 +45,7 @@ import {
   type TipoProfesional,
 } from '../types'
 import { formatDateTime, formatCurrency } from '../utils/format'
+import { newClientId } from '../utils/id'
 
 /** Debe coincidir con AuditService.RecargoArtEspecialista en la API. */
 const RECARGO_ART_ESPECIALISTA = 0.035
@@ -503,7 +504,7 @@ export function AuditDetailPage() {
     }
     setComposeBusy(true)
     try {
-      const key = crypto.randomUUID().replace(/-/g, '')
+      const key = newClientId()
       await servicesApi.sendEmail(
         id,
         {
@@ -624,7 +625,7 @@ export function AuditDetailPage() {
     if (!id) return
     setReplyBusy(true)
     try {
-      const key = crypto.randomUUID().replace(/-/g, '')
+      const key = newClientId()
       await servicesApi.reply(
         id,
         {

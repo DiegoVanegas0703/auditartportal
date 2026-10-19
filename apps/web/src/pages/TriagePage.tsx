@@ -45,6 +45,7 @@ import {
   type User,
 } from '../types'
 import { formatDateTime } from '../utils/format'
+import { newClientId } from '../utils/id'
 
 const URGENCY_LABELS: Record<UrgencyLevel, string> = {
   normal: 'Normal',
@@ -445,7 +446,7 @@ export function TriagePage() {
     setBusy(true)
     setError(null)
     try {
-      const key = crypto.randomUUID().replace(/-/g, '')
+      const key = newClientId()
       await triageApi.replyRequest(detail.id, payload, key)
       await loadDetail(detail.id)
       setToast('Respuesta encolada para envío')
