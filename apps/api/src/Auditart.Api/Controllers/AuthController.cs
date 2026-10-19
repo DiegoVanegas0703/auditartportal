@@ -86,6 +86,31 @@ public class AuthController : ControllerBase
         }
     }
 
+    [HttpPut("whatsapp-phone")]
+    [Authorize]
+    public async Task<ActionResult<AuthUserDto>> UpdateWhatsAppPhone(
+        [FromBody] UpdateWhatsAppPhoneRequest request,
+        CancellationToken ct)
+    {
+        var sub = User.FindFirst("sub")?.Value
+            ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!Guid.TryParse(sub, out var userId))
+            return Unauthorized();
+
+        try
+        {
+            return Ok(await _auth.UpdateWhatsAppPhoneAsync(userId, request.Phone, ct));
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
     [HttpPost("refresh")]
     [AllowAnonymous]
     public async Task<ActionResult<AuthTokensDto>> Refresh(

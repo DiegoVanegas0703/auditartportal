@@ -10,7 +10,8 @@ public sealed record AuthUserDto(
     AuditQueue? DefaultQueue,
     bool MustChangePassword,
     AuthPermissionsDto Permissions,
-    string? EmailSignatureHtml);
+    string? EmailSignatureHtml,
+    string? WhatsAppPhone);
 
 public sealed record AuthPermissionsDto(
     bool Triage,
@@ -31,3 +32,4 @@ public sealed record LoginRequest(string Email, string Password);
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 public sealed record RefreshRequest(string RefreshToken);
 public sealed record UpdateSignatureRequest(string? SignatureHtml);
+public sealed record UpdateWhatsAppPhoneRequest(string? Phone);

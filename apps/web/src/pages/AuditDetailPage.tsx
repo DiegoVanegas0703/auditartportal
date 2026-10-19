@@ -17,11 +17,11 @@ import {
   preciosApi,
   servicesApi,
   usersApi,
-  whatsappApi,
   type PrecioOptionDto,
   type PrestadorOptionDto,
   type ServiceAttachmentDto,
 } from '../api/auditartApi'
+import { WhatsAppTurnoModal } from '../components/whatsapp/WhatsAppTurnoModal'
 import { EmailAttachmentsList } from '../components/email/EmailAttachmentsList'
 import { EmailReplyComposer } from '../components/email/EmailReplyComposer'
 import { RichTextEditor } from '../components/email/RichTextEditor'
@@ -135,7 +135,7 @@ export function AuditDetailPage() {
   const [serviceAttachments, setServiceAttachments] = useState<ServiceAttachmentDto[]>([])
   const [uploadBusy, setUploadBusy] = useState(false)
   const [formularioOpen, setFormularioOpen] = useState(false)
-  const [whatsappBusy, setWhatsappBusy] = useState(false)
+  const [whatsappModalOpen, setWhatsappModalOpen] = useState(false)
   const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null)
   const [fetchedAudit, setFetchedAudit] = useState<AuditRecord | null>(null)
   const [auditLoading, setAuditLoading] = useState(false)
@@ -1380,26 +1380,12 @@ export function AuditDetailPage() {
           {FEATURES.whatsapp && (
             <button
               type="button"
-              disabled={whatsappBusy || !id}
-              onClick={() => {
-                if (!id) return
-                setWhatsappBusy(true)
-                void whatsappApi
-                  .notifyService(id)
-                  .then((r) => showToast(`WhatsApp enviado a ${r.phone}`))
-                  .catch((e: unknown) =>
-                    showToast(e instanceof Error ? e.message : 'No se pudo enviar WhatsApp'),
-                  )
-                  .finally(() => setWhatsappBusy(false))
-              }}
+              disabled={!id}
+              onClick={() => setWhatsappModalOpen(true)}
               className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-green-500/25 transition-all hover:shadow-lg disabled:opacity-50"
             >
-              {whatsappBusy ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <MessageCircle size={16} />
-              )}
-              Avisar paciente (WS)
+              <MessageCircle size={16} />
+              Avisar turno (WhatsApp)
             </button>
           )}
           <button
@@ -1443,6 +1429,17 @@ export function AuditDetailPage() {
               setFormularioOpen(false)
               void loadServiceAttachments(id)
               showToast(`Formulario generado: ${attachment.fileName}`)
+            }}
+          />
+        )}
+
+        {whatsappModalOpen && id && (
+          <WhatsAppTurnoModal
+            serviceId={id}
+            onClose={() => setWhatsappModalOpen(false)}
+            onSent={(phone) => {
+              setWhatsappModalOpen(false)
+              showToast(`WhatsApp de turno enviado a ${phone}`)
             }}
           />
         )}

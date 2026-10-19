@@ -5,6 +5,7 @@ type AuthUser = User & {
   permissions: Permission
   mustChangePassword: boolean
   emailSignatureHtml: string
+  whatsAppPhone: string
 }
 
 export interface AuthContextValue {
@@ -18,6 +19,7 @@ export interface AuthContextValue {
   logout: () => Promise<void>
   completePasswordChange: () => void
   updateSignature: (signatureHtml: string) => Promise<void>
+  updateWhatsAppPhone: (phone: string) => Promise<void>
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)

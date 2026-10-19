@@ -17,6 +17,7 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(x => x.PasswordHash).HasMaxLength(256);
         builder.Property(x => x.MustChangePassword).HasDefaultValue(false);
         builder.Property(x => x.EmailSignatureHtml);
+        builder.Property(x => x.WhatsAppPhone).HasMaxLength(32);
         builder.Property(x => x.Role).HasConversion<string>().HasMaxLength(32);
         builder.Property(x => x.DefaultQueue).HasConversion<string>().HasMaxLength(32);
     }

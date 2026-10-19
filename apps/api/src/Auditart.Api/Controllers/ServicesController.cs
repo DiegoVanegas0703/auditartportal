@@ -487,7 +487,7 @@ public class ServicesController : ControllerBase
 
             service.TransitionTo(request.NextStatus, GetUserId(), request.Reason, deadline);
             await _db.SaveChangesAsync(ct);
-            await _whatsApp.TryAutoNotifyAsync(id, request.NextStatus, ct);
+            await _whatsApp.TryAutoNotifyAsync(id, request.NextStatus, GetUserId(), ct);
             return NoContent();
         }
         catch (DomainException ex)

@@ -28,45 +28,79 @@ public sealed class WhatsAppNotifyService
 
     public bool IsEnabled => _sender.IsEnabled;
 
-    public async Task<WhatsAppNotifyResult> NotifyStatusAsync(
+    public async Task<WhatsAppTurnoPreviewDto> PreviewTurnoAsync(
         Guid serviceId,
-        AuditStatus? statusOverride = null,
+        Guid notifierUserId,
         CancellationToken ct = default)
     {
-        if (!_sender.IsEnabled)
-            return WhatsAppNotifyResult.Fail("WhatsApp no está habilitado. Configurá WhatsApp__* en el .env.");
+        var service = await LoadServiceForTurnoAsync(serviceId, ct);
+        var notifier = await _db.Users.AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == notifierUserId, ct);
 
-        var service = await _db.AuditServices
-            .Include(s => s.PacienteEntity)
-            .FirstOrDefaultAsync(s => s.Id == serviceId, ct)
-            ?? throw new KeyNotFoundException("Prestación no encontrada.");
-
-        var phone = PhoneNormalizer.ToE164Argentina(
+        var patientPhone = PhoneNormalizer.ToE164Argentina(
             service.PacienteEntity?.Telefono ?? service.TelefonoPaciente);
-        if (phone is null)
-            return WhatsAppNotifyResult.Fail("El paciente no tiene un teléfono válido para WhatsApp.");
+        var body = WhatsAppTurnoMessage.Build(service, notifier, out var contactLink);
 
-        var status = statusOverride ?? service.Status;
-        var template = _config["WhatsApp:StatusTemplateName"] ?? "auditart_estado_actualizado";
-        var lang = _config["WhatsApp:StatusTemplateLanguage"] ?? "es_AR";
-        var paciente = service.PacienteEntity?.Nombre ?? service.Paciente;
-        var statusLabel = status.ToString();
+        var canSend = true;
+        string? block = null;
+        if (!_sender.IsEnabled)
+        {
+            canSend = false;
+            block = "WhatsApp no está habilitado en el servidor.";
+        }
+        else if (patientPhone is null)
+        {
+            canSend = false;
+            block = "El paciente no tiene un teléfono válido para WhatsApp.";
+        }
+        else if (service.FechaTurnoUtc is null)
+        {
+            canSend = false;
+            block = "Este caso aún no tiene fecha de turno. Coordiná el turno (Amarillo) primero.";
+        }
+        else if (string.IsNullOrWhiteSpace(notifier?.WhatsAppPhone))
+        {
+            canSend = false;
+            block = "Configurá tu WhatsApp en Mi cuenta para incluir el link de contacto.";
+        }
 
+        return new WhatsAppTurnoPreviewDto(
+            patientPhone,
+            body,
+            contactLink,
+            notifier?.Name,
+            canSend,
+            block,
+            service.FechaTurnoUtc,
+            service.Prestador?.Domicilio,
+            service.Prestador?.Nombre ?? service.Profesional,
+            service.PacienteEntity?.Nombre ?? service.Paciente,
+            string.IsNullOrWhiteSpace(service.Especialidad)
+                ? service.TipoServicio.ToString()
+                : service.Especialidad!);
+    }
+
+    public async Task<WhatsAppNotifyResult> NotifyTurnoAsync(
+        Guid serviceId,
+        Guid notifierUserId,
+        CancellationToken ct = default)
+    {
+        var preview = await PreviewTurnoAsync(serviceId, notifierUserId, ct);
+        if (!preview.CanSend)
+            return WhatsAppNotifyResult.Fail(preview.BlockReason ?? "No se puede enviar.");
+
+        var phone = preview.PatientPhoneE164!;
         var log = WhatsAppOutboundLog.Create(
             serviceId,
             phone,
-            template,
-            $"Estado {statusLabel} — {paciente}");
+            "turno_asignado_texto",
+            preview.MessageBody.Length > 480
+                ? preview.MessageBody[..480]
+                : preview.MessageBody);
         _db.Add(log);
         await _db.SaveChangesAsync(ct);
 
-        var result = await _sender.SendTemplateAsync(
-            phone,
-            template,
-            lang,
-            [paciente, statusLabel, service.Numero.ToString()],
-            ct);
-
+        var result = await _sender.SendTextAsync(phone, preview.MessageBody, ct);
         if (result.Ok)
             log.MarkSent(result.ProviderMessageId);
         else
@@ -83,28 +117,55 @@ public sealed class WhatsAppNotifyService
     public bool ShouldAutoNotify(AuditStatus status)
     {
         if (!_sender.IsEnabled) return false;
-        var raw = _config["WhatsApp:NotifyOnStatuses"] ?? "Amarillo,Verde";
+        var raw = _config["WhatsApp:NotifyOnStatuses"] ?? "Amarillo";
         var set = raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(s => s.ToLowerInvariant())
             .ToHashSet();
         return set.Contains(status.ToString().ToLowerInvariant());
     }
 
-    public async Task TryAutoNotifyAsync(Guid serviceId, AuditStatus status, CancellationToken ct)
+    public async Task TryAutoNotifyAsync(
+        Guid serviceId,
+        AuditStatus status,
+        Guid notifierUserId,
+        CancellationToken ct)
     {
         if (!ShouldAutoNotify(status)) return;
+        if (status != AuditStatus.Amarillo) return;
         try
         {
-            var result = await NotifyStatusAsync(serviceId, status, ct);
+            var result = await NotifyTurnoAsync(serviceId, notifierUserId, ct);
             if (!result.Success)
-                _logger.LogWarning("WhatsApp auto-notify falló para {ServiceId}: {Error}", serviceId, result.Error);
+                _logger.LogWarning("WhatsApp turno auto-notify falló para {ServiceId}: {Error}", serviceId, result.Error);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "WhatsApp auto-notify excepción para {ServiceId}", serviceId);
+            _logger.LogWarning(ex, "WhatsApp turno auto-notify excepción para {ServiceId}", serviceId);
         }
     }
+
+    private async Task<AuditService> LoadServiceForTurnoAsync(Guid serviceId, CancellationToken ct)
+    {
+        return await _db.AuditServices
+            .Include(s => s.PacienteEntity)
+            .Include(s => s.Prestador)
+            .FirstOrDefaultAsync(s => s.Id == serviceId, ct)
+            ?? throw new KeyNotFoundException("Prestación no encontrada.");
+    }
 }
+
+public sealed record WhatsAppTurnoPreviewDto(
+    string? PatientPhoneE164,
+    string MessageBody,
+    string? ContactWhatsAppLink,
+    string? NotifierName,
+    bool CanSend,
+    string? BlockReason,
+    DateTime? FechaTurnoUtc,
+    string? Direccion,
+    string? Medico,
+    string PacienteNombre,
+    string Motivo);
 
 public sealed record WhatsAppNotifyResult(bool Success, Guid? LogId, string? Phone, string? Error)
 {

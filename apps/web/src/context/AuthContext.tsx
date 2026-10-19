@@ -26,6 +26,7 @@ type AuthUser = User & {
   permissions: Permission
   mustChangePassword: boolean
   emailSignatureHtml: string
+  whatsAppPhone: string
 }
 
 
@@ -60,6 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ...mapped,
       mustChangePassword: dto.mustChangePassword,
       emailSignatureHtml: dto.emailSignatureHtml ?? '',
+      whatsAppPhone: dto.whatsAppPhone ?? '',
     })
 
   }, [])
@@ -152,6 +154,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [applyAuthUser],
   )
 
+  const updateWhatsAppPhone = useCallback(
+    async (phone: string) => {
+      const dto = await authApi.updateWhatsAppPhone(phone.trim() ? phone.trim() : null)
+      applyAuthUser(dto)
+    },
+    [applyAuthUser],
+  )
+
   const permissions = useMemo(
 
     () => user?.permissions ?? emptyPermissions,
@@ -186,9 +196,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       updateSignature,
 
+      updateWhatsAppPhone,
+
     }),
 
-    [user, permissions, loading, error, login, logout, completePasswordChange, updateSignature],
+    [
+      user,
+      permissions,
+      loading,
+      error,
+      login,
+      logout,
+      completePasswordChange,
+      updateSignature,
+      updateWhatsAppPhone,
+    ],
 
   )
 

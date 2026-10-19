@@ -12,6 +12,6 @@ public sealed class WhatsAppOptions
     /// <summary>Plantilla Meta para avisos de estado (debe estar aprobada).</summary>
     public string StatusTemplateName { get; set; } = "auditart_estado_actualizado";
     public string StatusTemplateLanguage { get; set; } = "es_AR";
-    /// <summary>Estados que disparan aviso automático (coma-separados). Ej: Amarillo,Verde</summary>
-    public string NotifyOnStatuses { get; set; } = "Amarillo,Verde";
+    /// <summary>Estados que disparan aviso automático de turno. Por defecto solo Amarillo.</summary>
+    public string NotifyOnStatuses { get; set; } = "Amarillo";
 }

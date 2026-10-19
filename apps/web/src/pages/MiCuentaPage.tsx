@@ -1,4 +1,4 @@
-import { CheckCircle2, Loader2, Lock, PenLine } from 'lucide-react'
+import { CheckCircle2, ExternalLink, Loader2, Lock, MessageCircle, PenLine } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { authApi } from '../api/auditartApi'
 import { EmailHtmlFrame } from '../components/email/EmailHtmlFrame'
@@ -19,9 +19,108 @@ export function MiCuentaPage() {
       />
       <div className="grid gap-6 lg:grid-cols-2">
         <SignatureCard />
+        <WhatsAppPhoneCard />
         <PasswordCard />
       </div>
     </div>
+  )
+}
+
+function WhatsAppPhoneCard() {
+  const { user, updateWhatsAppPhone } = useAuth()
+  const saved = user?.whatsAppPhone ?? ''
+  const [phone, setPhone] = useState(saved)
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
+
+  useEffect(() => setPhone(saved), [saved])
+
+  const digits = phone.replace(/\D/g, '')
+  const waLink =
+    digits.length >= 8
+      ? `https://wa.me/${digits.startsWith('54') ? digits : `549${digits.replace(/^0/, '')}`}`
+      : null
+
+  const handleSave = async () => {
+    setBusy(true)
+    setMessage(null)
+    try {
+      await updateWhatsAppPhone(phone)
+      setMessage({
+        ok: true,
+        text: phone.trim()
+          ? 'WhatsApp guardado. Se incluirá como link en los avisos de turno.'
+          : 'WhatsApp eliminado.',
+      })
+    } catch (e) {
+      setMessage({
+        ok: false,
+        text: e instanceof Error ? e.message : 'No se pudo guardar el WhatsApp',
+      })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="card-flat p-6">
+      <div className="mb-4 flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-green-500/10 text-green-700">
+          <MessageCircle size={18} />
+        </div>
+        <div>
+          <h2 className="text-base font-bold text-auditart-navy">WhatsApp de contacto</h2>
+          <p className="text-xs text-auditart-muted">
+            Cuando avisás un turno al paciente, el mensaje indica que no responda a ese chat e
+            incluye un link wa.me a este número.
+          </p>
+        </div>
+      </div>
+
+      <label className="block">
+        <span className="mb-1.5 block text-xs font-semibold text-auditart-gray">
+          Celular (Argentina)
+        </span>
+        <input
+          type="tel"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="11 1234-5678"
+          className="input-modern w-full px-4 py-2.5 text-sm"
+        />
+      </label>
+
+      {waLink && (
+        <p className="mt-2 flex flex-wrap items-center gap-1 text-xs text-auditart-muted">
+          Vista previa del link:
+          <a
+            href={waLink}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 font-semibold text-green-700 hover:underline"
+          >
+            {waLink}
+            <ExternalLink size={12} />
+          </a>
+        </p>
+      )}
+
+      {message && (
+        <p className={`mt-3 text-sm ${message.ok ? 'text-emerald-700' : 'text-red-600'}`}>
+          {message.text}
+        </p>
+      )}
+
+      <button
+        type="button"
+        onClick={() => void handleSave()}
+        disabled={busy || phone.trim() === saved.trim()}
+        className="btn-primary mt-4 flex items-center gap-2 disabled:opacity-50"
+      >
+        {busy && <Loader2 size={16} className="animate-spin" />}
+        Guardar WhatsApp
+      </button>
+    </section>
   )
 }
 

@@ -28,19 +28,13 @@ public sealed class MetaWhatsAppSender : IWhatsAppSender
         && !string.IsNullOrWhiteSpace(_options.PhoneNumberId)
         && !string.IsNullOrWhiteSpace(_options.AccessToken);
 
-    public async Task<WhatsAppSendResult> SendTemplateAsync(
+    public Task<WhatsAppSendResult> SendTemplateAsync(
         string phoneE164,
         string templateName,
         string languageCode,
         IReadOnlyList<string> bodyParameters,
         CancellationToken ct = default)
     {
-        if (!IsEnabled)
-            return new WhatsAppSendResult(false, null, "WhatsApp no está habilitado o faltan credenciales.");
-
-        var url =
-            $"https://graph.facebook.com/{_options.ApiVersion}/{_options.PhoneNumberId}/messages";
-
         var parameters = bodyParameters
             .Select(p => new Dictionary<string, string>
             {
@@ -71,6 +65,35 @@ public sealed class MetaWhatsAppSender : IWhatsAppSender
             }
         };
 
+        return PostAsync(phoneE164, payload, ct);
+    }
+
+    public Task<WhatsAppSendResult> SendTextAsync(
+        string phoneE164,
+        string body,
+        CancellationToken ct = default)
+    {
+        var payload = new
+        {
+            messaging_product = "whatsapp",
+            to = phoneE164,
+            type = "text",
+            text = new
+            {
+                preview_url = true,
+                body
+            }
+        };
+        return PostAsync(phoneE164, payload, ct);
+    }
+
+    private async Task<WhatsAppSendResult> PostAsync(string phoneE164, object payload, CancellationToken ct)
+    {
+        if (!IsEnabled)
+            return new WhatsAppSendResult(false, null, "WhatsApp no está habilitado o faltan credenciales.");
+
+        var url =
+            $"https://graph.facebook.com/{_options.ApiVersion}/{_options.PhoneNumberId}/messages";
         var json = JsonSerializer.Serialize(payload);
         using var req = new HttpRequestMessage(HttpMethod.Post, url);
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.AccessToken);

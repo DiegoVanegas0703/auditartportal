@@ -10,6 +10,11 @@ public interface IWhatsAppSender
         string languageCode,
         IReadOnlyList<string> bodyParameters,
         CancellationToken ct = default);
+
+    Task<WhatsAppSendResult> SendTextAsync(
+        string phoneE164,
+        string body,
+        CancellationToken ct = default);
 }
 
 public sealed record WhatsAppSendResult(bool Ok, string? ProviderMessageId, string? Error);

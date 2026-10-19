@@ -121,7 +121,8 @@ public class AuthService
             PermissionService.CanManageUsers(user.Role),
             PermissionService.CanViewReports(user.Role),
             PermissionService.CanManagePrecios(user.Role)),
-        user.EmailSignatureHtml);
+        user.EmailSignatureHtml,
+        user.WhatsAppPhone);
 
     public async Task<AuthUserDto> UpdateSignatureAsync(Guid userId, string? signatureHtml, CancellationToken ct = default)
     {
@@ -132,6 +133,20 @@ public class AuthService
             ?? throw new UnauthorizedAccessException("Usuario no encontrado.");
 
         user.UpdateEmailSignature(signatureHtml);
+        await _db.SaveChangesAsync(ct);
+        return MapUser(user);
+    }
+
+    public async Task<AuthUserDto> UpdateWhatsAppPhoneAsync(Guid userId, string? phone, CancellationToken ct = default)
+    {
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct)
+            ?? throw new UnauthorizedAccessException("Usuario no encontrado.");
+
+        if (!string.IsNullOrWhiteSpace(phone)
+            && Auditart.Application.WhatsApp.PhoneNormalizer.ToE164Argentina(phone) is null)
+            throw new InvalidOperationException("Indicá un teléfono WhatsApp válido (ej. 11 1234-5678).");
+
+        user.UpdateWhatsAppPhone(phone);
         await _db.SaveChangesAsync(ct);
         return MapUser(user);
     }

@@ -2,10 +2,10 @@ using System.Security.Claims;
 using Auditart.Application.Auth;
 using Auditart.Application.WhatsApp;
 using Auditart.Domain.Enums;
+using Auditart.Infrastructure.WhatsApp;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
-using Auditart.Infrastructure.WhatsApp;
 
 namespace Auditart.Api.Controllers;
 
@@ -29,22 +29,31 @@ public class WhatsAppController : ControllerBase
 
     [HttpGet("status")]
     [Authorize]
-    public ActionResult<object> Status()
-    {
-        return Ok(new { enabled = _notify.IsEnabled });
-    }
+    public ActionResult<object> Status() => Ok(new { enabled = _notify.IsEnabled });
 
-    [HttpPost("services/{serviceId:guid}/notify")]
+    [HttpGet("services/{serviceId:guid}/turno-preview")]
     [Authorize]
-    public async Task<ActionResult<object>> NotifyService(Guid serviceId, CancellationToken ct)
+    public async Task<ActionResult<WhatsAppTurnoPreviewDto>> PreviewTurno(Guid serviceId, CancellationToken ct)
     {
-        var role = GetRole();
-        if (!PermissionService.CanOperateBoard(role) && role is not (UserRole.Admin or UserRole.Jefatura))
-            return Forbid();
-
+        if (!CanOperate()) return Forbid();
         try
         {
-            var result = await _notify.NotifyStatusAsync(serviceId, ct: ct);
+            return Ok(await _notify.PreviewTurnoAsync(serviceId, GetUserId(), ct));
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+    }
+
+    [HttpPost("services/{serviceId:guid}/notify-turno")]
+    [Authorize]
+    public async Task<ActionResult<object>> NotifyTurno(Guid serviceId, CancellationToken ct)
+    {
+        if (!CanOperate()) return Forbid();
+        try
+        {
+            var result = await _notify.NotifyTurnoAsync(serviceId, GetUserId(), ct);
             if (!result.Success)
                 return BadRequest(new { error = result.Error });
             return Ok(new { phone = result.Phone, logId = result.LogId });
@@ -83,9 +92,18 @@ public class WhatsAppController : ControllerBase
         return Ok();
     }
 
+    private bool CanOperate()
+    {
+        var role = GetRole();
+        return PermissionService.CanOperateBoard(role) || role is UserRole.Admin or UserRole.Jefatura;
+    }
+
     private UserRole GetRole()
     {
         var raw = User.FindFirstValue(ClaimTypes.Role) ?? User.FindFirstValue("role");
         return Enum.TryParse<UserRole>(raw, true, out var role) ? role : UserRole.Operador;
     }
+
+    private Guid GetUserId() =>
+        Guid.Parse(User.FindFirstValue("sub") ?? User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }

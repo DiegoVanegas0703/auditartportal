@@ -35,6 +35,7 @@ export interface AuthUserDto {
     precios: boolean
   }
   emailSignatureHtml?: string | null
+  whatsAppPhone?: string | null
 }
 
 export interface AuthTokensDto {
@@ -483,6 +484,13 @@ export const authApi = {
     })
   },
 
+  async updateWhatsAppPhone(phone: string | null): Promise<AuthUserDto> {
+    return apiFetch<AuthUserDto>('/api/auth/whatsapp-phone', {
+      method: 'PUT',
+      body: JSON.stringify({ phone }),
+    })
+  },
+
   async logout(refreshToken: string | null) {
     try {
       if (refreshToken) {
@@ -685,12 +693,29 @@ export const aiApi = {
     }),
 }
 
+export interface WhatsAppTurnoPreview {
+  patientPhoneE164?: string | null
+  messageBody: string
+  contactWhatsAppLink?: string | null
+  notifierName?: string | null
+  canSend: boolean
+  blockReason?: string | null
+  fechaTurnoUtc?: string | null
+  direccion?: string | null
+  medico?: string | null
+  pacienteNombre: string
+  motivo: string
+}
+
 export const whatsappApi = {
   status: () => apiFetch<{ enabled: boolean }>('/api/whatsapp/status'),
-  notifyService: (serviceId: string) =>
-    apiFetch<{ phone: string; logId: string }>(`/api/whatsapp/services/${serviceId}/notify`, {
-      method: 'POST',
-    }),
+  previewTurno: (serviceId: string) =>
+    apiFetch<WhatsAppTurnoPreview>(`/api/whatsapp/services/${serviceId}/turno-preview`),
+  notifyTurno: (serviceId: string) =>
+    apiFetch<{ phone: string; logId: string }>(
+      `/api/whatsapp/services/${serviceId}/notify-turno`,
+      { method: 'POST' },
+    ),
 }
 
 export interface FormularioFieldDto {
