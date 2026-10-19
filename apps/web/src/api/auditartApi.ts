@@ -675,6 +675,29 @@ export interface ServiceAttachmentDto {
 
 export type FormularioTipo = 'pmi' | 'pme' | 'pmr'
 
+export type InformeTipo = 'telemedicina' | 'terreno' | 'consultorio'
+
+export interface InformeFieldDto {
+  key: string
+  label: string
+  kind: string
+  logicalKey?: string | null
+  order: number
+  value: string
+  options?: { value: string; label: string }[] | null
+}
+
+export interface InformePrefillDto {
+  tipo: string
+  title: string
+  fileName: string
+  suggestedTipo: string
+  tieneFirmaPrestador: boolean
+  prestadorNombre?: string | null
+  firmaWarning?: string | null
+  fields: InformeFieldDto[]
+}
+
 export interface AiAssistantDto {
   id: string
   name: string
@@ -747,6 +770,13 @@ export const servicesApi = {
     apiFetch<FormularioPrefillDto>(`/api/services/${id}/formularios/${tipo}/prefill`),
   generateFormulario: (id: string, tipo: FormularioTipo, values: Record<string, string>) =>
     apiFetch<ServiceAttachmentDto>(`/api/services/${id}/formularios/${tipo}`, {
+      method: 'POST',
+      body: JSON.stringify({ values }),
+    }),
+  getInformePrefill: (id: string, tipo: InformeTipo | 'auto') =>
+    apiFetch<InformePrefillDto>(`/api/services/${id}/informes/${tipo}/prefill`),
+  generateInforme: (id: string, tipo: InformeTipo, values: Record<string, string>) =>
+    apiFetch<ServiceAttachmentDto>(`/api/services/${id}/informes/${tipo}`, {
       method: 'POST',
       body: JSON.stringify({ values }),
     }),

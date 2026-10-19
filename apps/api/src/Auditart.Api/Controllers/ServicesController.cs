@@ -3,6 +3,7 @@ using Auditart.Application.Abstractions;
 using Auditart.Application.Auth;
 using Auditart.Application.Chronic;
 using Auditart.Application.Formularios;
+using Auditart.Application.Informes;
 using Auditart.Application.Sla;
 using Auditart.Application.Triage;
 using Auditart.Application.WhatsApp;
@@ -26,6 +27,7 @@ public class ServicesController : ControllerBase
     private readonly SlaRuleService _slaRules;
     private readonly IObjectStorage _storage;
     private readonly FormularioPdfService _formularios;
+    private readonly InformeWordService _informes;
     private readonly WhatsAppNotifyService _whatsApp;
 
     public ServicesController(
@@ -35,6 +37,7 @@ public class ServicesController : ControllerBase
         SlaRuleService slaRules,
         IObjectStorage storage,
         FormularioPdfService formularios,
+        InformeWordService informes,
         WhatsAppNotifyService whatsApp)
     {
         _db = db;
@@ -43,6 +46,7 @@ public class ServicesController : ControllerBase
         _slaRules = slaRules;
         _storage = storage;
         _formularios = formularios;
+        _informes = informes;
         _whatsApp = whatsApp;
     }
 
@@ -657,6 +661,67 @@ public class ServicesController : ControllerBase
         try
         {
             var attachment = await _formularios.GenerateAsync(id, parsed, body?.Values, ct);
+            return Ok(attachment);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpGet("{id:guid}/informes/{tipo}/prefill")]
+    public async Task<ActionResult<InformePrefillDto>> GetInformePrefill(
+        Guid id,
+        string tipo,
+        CancellationToken ct)
+    {
+        var role = GetRole();
+        if (!PermissionService.CanOperateBoard(role) && role is not (UserRole.Admin or UserRole.Jefatura))
+            return Forbid();
+
+        InformeTipo? parsed = null;
+        if (!string.IsNullOrWhiteSpace(tipo) && !string.Equals(tipo, "auto", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!InformeWordService.TryParseTipo(tipo, out var t))
+                return BadRequest(new { error = "Tipo de informe inválido. Usá telemedicina, terreno o consultorio." });
+            parsed = t;
+        }
+
+        try
+        {
+            return Ok(await _informes.GetPrefillAsync(id, parsed, ct));
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("{id:guid}/informes/{tipo}")]
+    public async Task<ActionResult<InformeAttachmentDto>> GenerateInforme(
+        Guid id,
+        string tipo,
+        [FromBody] InformeGenerateRequest? body,
+        CancellationToken ct)
+    {
+        var role = GetRole();
+        if (!PermissionService.CanOperateBoard(role) && role is not (UserRole.Admin or UserRole.Jefatura))
+            return Forbid();
+
+        if (!InformeWordService.TryParseTipo(tipo, out var parsed))
+            return BadRequest(new { error = "Tipo de informe inválido. Usá telemedicina, terreno o consultorio." });
+
+        try
+        {
+            var attachment = await _informes.GenerateAsync(id, parsed, body?.Values, ct);
             return Ok(attachment);
         }
         catch (KeyNotFoundException)

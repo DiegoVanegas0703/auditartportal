@@ -29,6 +29,7 @@ import { SignatureHint } from '../components/email/SignatureHint'
 import { initialBodyWithSignature, isBodyEmpty } from '../components/email/signature'
 import { EmailTimeline } from '../components/email/EmailTimeline'
 import { FormularioPdfModal } from '../components/formularios/FormularioPdfModal'
+import { InformeWordModal } from '../components/informes/InformeWordModal'
 import { PrestadorDetailModal } from '../components/prestadores/PrestadorDetailModal'
 import { StatusBadge } from '../components/ui/StatusBadge'
 import { useAuth } from '../context/useAuth'
@@ -135,6 +136,7 @@ export function AuditDetailPage() {
   const [serviceAttachments, setServiceAttachments] = useState<ServiceAttachmentDto[]>([])
   const [uploadBusy, setUploadBusy] = useState(false)
   const [formularioOpen, setFormularioOpen] = useState(false)
+  const [informeOpen, setInformeOpen] = useState(false)
   const [whatsappModalOpen, setWhatsappModalOpen] = useState(false)
   const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null)
   const [fetchedAudit, setFetchedAudit] = useState<AuditRecord | null>(null)
@@ -1396,6 +1398,16 @@ export function AuditDetailPage() {
             <FileText size={16} />
             Formularios
           </button>
+          {audit.status === 'amarillo' && (
+            <button
+              type="button"
+              onClick={() => setInformeOpen(true)}
+              className="flex items-center gap-2 rounded-xl border-2 border-amber-300 bg-amber-50 px-5 py-2.5 text-sm font-semibold text-amber-900 transition-all hover:border-amber-500 hover:shadow-sm"
+            >
+              <FileText size={16} />
+              Informe Word
+            </button>
+          )}
           <label
             className={`flex cursor-pointer items-center gap-2 rounded-xl border-2 border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-auditart-navy transition-all hover:border-auditart-blue hover:shadow-sm ${
               uploadBusy ? 'pointer-events-none opacity-50' : ''
@@ -1429,6 +1441,19 @@ export function AuditDetailPage() {
               setFormularioOpen(false)
               void loadServiceAttachments(id)
               showToast(`Formulario generado: ${attachment.fileName}`)
+            }}
+          />
+        )}
+
+        {informeOpen && id && (
+          <InformeWordModal
+            serviceId={id}
+            serviceType={audit.tipoServicio}
+            onClose={() => setInformeOpen(false)}
+            onGenerated={(attachment) => {
+              setInformeOpen(false)
+              void loadServiceAttachments(id)
+              showToast(`Informe generado: ${attachment.fileName}`)
             }}
           />
         )}

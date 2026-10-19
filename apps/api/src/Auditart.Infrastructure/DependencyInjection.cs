@@ -61,6 +61,7 @@ public static class DependencyInjection
         services.AddScoped<AuthService>();
         services.AddSingleton<IAcroFormFiller, AcroFormFiller>();
         services.AddScoped<FormularioPdfService>();
+        services.AddScoped<Auditart.Application.Informes.InformeWordService>();
         services.Configure<WhatsAppOptions>(configuration.GetSection(WhatsAppOptions.SectionName));
         services.Configure<GeminiOptions>(configuration.GetSection(GeminiOptions.SectionName));
         services.AddHttpClient(nameof(MetaWhatsAppSender));
