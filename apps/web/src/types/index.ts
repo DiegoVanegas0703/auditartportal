@@ -217,7 +217,7 @@ export const CHANNEL_LABELS: Record<EmailChannel, string> = {
 
 export const QUEUE_LABELS: Record<AuditQueue, string> = {
   general: 'Operadores Generales',
-  telemedicina: 'Telemedicina (Aylen)',
+  telemedicina: 'Telemedicina',
   cronicos: 'Crónicos',
 }
 
