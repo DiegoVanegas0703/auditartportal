@@ -4,6 +4,7 @@ using System.Net.Mail;
 using System.Text;
 using System.Text.RegularExpressions;
 using Auditart.Application.Abstractions;
+using Auditart.Application.Triage;
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Auth.OAuth2.Flows;
 using Google.Apis.Auth.OAuth2.Responses;
@@ -434,7 +435,7 @@ public sealed class GmailInboxService : IGmailInboxService, IDisposable
         var plainBody = new StringBuilder();
         var htmlBody = new StringBuilder();
         var attachments = new List<GmailAttachmentDto>();
-        var inlineImages = new Dictionary<string, InlineImage>(StringComparer.OrdinalIgnoreCase);
+        var imageParts = new List<EmailInlineImageEmbedder.ImagePart>();
 
         if (message.Payload is not null)
         {
@@ -444,16 +445,32 @@ public sealed class GmailInboxService : IGmailInboxService, IDisposable
                 plainBody,
                 htmlBody,
                 attachments,
-                inlineImages,
+                imageParts,
                 cancellationToken);
         }
 
         var bodyText = plainBody.Length > 0
             ? plainBody.ToString().Trim()
             : HtmlToText(htmlBody.ToString());
-        var bodyHtml = htmlBody.Length > 0
-            ? EmbedInlineImages(htmlBody.ToString(), inlineImages, attachments)
-            : null;
+
+        string? bodyHtml = null;
+        if (htmlBody.Length > 0)
+        {
+            var embedParts = imageParts
+                .Concat(attachments.Select(a =>
+                    new EmailInlineImageEmbedder.ImagePart(null, a.FileName, a.ContentType, a.Content)))
+                .ToList();
+            var rawHtml = htmlBody.ToString();
+            bodyHtml = EmailInlineImageEmbedder.Embed(rawHtml, embedParts);
+
+            // Si se resolvieron todos los cid:, no listar esas imágenes otra vez como adjuntos.
+            if (rawHtml.Contains("cid:", StringComparison.OrdinalIgnoreCase)
+                && !bodyHtml.Contains("cid:", StringComparison.OrdinalIgnoreCase))
+            {
+                attachments.RemoveAll(a =>
+                    imageParts.Any(p => ReferenceEquals(p.Content, a.Content)));
+            }
+        }
 
         return new GmailMessageDto(
             message.Id,
@@ -478,7 +495,7 @@ public sealed class GmailInboxService : IGmailInboxService, IDisposable
         StringBuilder plainBody,
         StringBuilder htmlBody,
         List<GmailAttachmentDto> attachments,
-        Dictionary<string, InlineImage> inlineImages,
+        List<EmailInlineImageEmbedder.ImagePart> imageParts,
         CancellationToken cancellationToken)
     {
         if (part.Parts is not null)
@@ -491,39 +508,80 @@ public sealed class GmailInboxService : IGmailInboxService, IDisposable
                     plainBody,
                     htmlBody,
                     attachments,
-                    inlineImages,
+                    imageParts,
                     cancellationToken);
             }
         }
 
-        var contentId = Header(part.Headers ?? [], "Content-ID")?.Trim().Trim('<', '>');
-        var isImage = part.MimeType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) == true;
+        var isTextPart = string.Equals(part.MimeType, "text/plain", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(part.MimeType, "text/html", StringComparison.OrdinalIgnoreCase)
+            || (part.MimeType?.StartsWith("multipart/", StringComparison.OrdinalIgnoreCase) ?? false);
+
+        var contentId = NormalizeContentId(Header(part.Headers ?? [], "Content-ID"));
+        var contentLocation = NormalizeContentId(Header(part.Headers ?? [], "Content-Location"));
+        var disposition = Header(part.Headers ?? [], "Content-Disposition") ?? string.Empty;
+        var isInlineDisposition = disposition.Contains("inline", StringComparison.OrdinalIgnoreCase);
+        var fileName = part.Filename?.Trim();
+        if (string.IsNullOrWhiteSpace(fileName) && !string.IsNullOrWhiteSpace(contentLocation))
+            fileName = Path.GetFileName(contentLocation);
+        var looksLikeImage = EmailInlineImageEmbedder.LooksLikeImage(part.MimeType, fileName);
+        // Outlook/ART a menudo manda imagen como octet-stream + Content-ID, sin filename.
+        var maybeInlineImage = !isTextPart
+            && (!string.IsNullOrWhiteSpace(contentId) || isInlineDisposition);
+
         byte[]? inlineContent = null;
-        if (isImage && !string.IsNullOrWhiteSpace(contentId))
+        if (looksLikeImage || maybeInlineImage)
         {
             inlineContent = await ReadAttachmentContentAsync(messageId, part, cancellationToken);
             if (inlineContent.Length > 0)
-                inlineImages[contentId] = new InlineImage(part.MimeType!, inlineContent);
+            {
+                var mime = EmailInlineImageEmbedder.ResolveImageMime(part.MimeType, fileName, inlineContent);
+                if (mime.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
+                    || looksLikeImage
+                    || EmailInlineImageEmbedder.LooksLikeImage(mime, fileName))
+                {
+                    imageParts.Add(new EmailInlineImageEmbedder.ImagePart(
+                        contentId ?? contentLocation,
+                        fileName,
+                        mime,
+                        inlineContent));
+                }
+                else
+                {
+                    // No es imagen (p.ej. PDF con Content-ID): no indexar como inline.
+                    inlineContent = null;
+                }
+            }
         }
 
-        var hasFileName = !string.IsNullOrWhiteSpace(part.Filename);
+        var hasFileName = !string.IsNullOrWhiteSpace(fileName);
         if (hasFileName)
         {
             var content = inlineContent ?? await ReadAttachmentContentAsync(messageId, part, cancellationToken);
             if (content.LongLength > _options.MaxAttachmentBytes)
             {
                 throw new InvalidOperationException(
-                    $"El adjunto '{part.Filename}' supera el máximo permitido.");
+                    $"El adjunto '{fileName}' supera el máximo permitido.");
+            }
+
+            if (looksLikeImage && inlineContent is null && content.Length > 0)
+            {
+                var mime = EmailInlineImageEmbedder.ResolveImageMime(part.MimeType, fileName, content);
+                imageParts.Add(new EmailInlineImageEmbedder.ImagePart(contentId, fileName, mime, content));
             }
 
             attachments.Add(new GmailAttachmentDto(
                 part.Body?.AttachmentId ?? part.PartId ?? Guid.NewGuid().ToString("N"),
-                part.Filename,
-                part.MimeType ?? "application/octet-stream",
+                fileName!,
+                EmailInlineImageEmbedder.ResolveImageMime(part.MimeType, fileName, content),
                 content.LongLength,
                 content));
             return;
         }
+
+        // Imagen inline sin filename: ya está en imageParts; no listar como adjunto.
+        if (inlineContent is { Length: > 0 } && maybeInlineImage)
+            return;
 
         var isPlain = string.Equals(part.MimeType, "text/plain", StringComparison.OrdinalIgnoreCase);
         var isHtml = string.Equals(part.MimeType, "text/html", StringComparison.OrdinalIgnoreCase);
@@ -540,36 +598,6 @@ public sealed class GmailInboxService : IGmailInboxService, IDisposable
             plainBody.AppendLine(text);
         else
             htmlBody.AppendLine(text);
-    }
-
-    private sealed record InlineImage(string MimeType, byte[] Content);
-
-    private const int MaxInlineImageBytes = 3 * 1024 * 1024;
-
-    /// <summary>
-    /// Reemplaza <c>cid:</c> por data URIs para que el HTML se vea solo; las imágenes embebidas
-    /// dejan de listarse como adjuntos.
-    /// </summary>
-    private static string EmbedInlineImages(
-        string html,
-        Dictionary<string, InlineImage> inlineImages,
-        List<GmailAttachmentDto> attachments)
-    {
-        if (inlineImages.Count == 0 || !html.Contains("cid:", StringComparison.OrdinalIgnoreCase))
-            return html;
-
-        return Regex.Replace(
-            html,
-            @"cid:([^""'\s>)]+)",
-            match =>
-            {
-                var cid = WebUtility.UrlDecode(match.Groups[1].Value);
-                if (!inlineImages.TryGetValue(cid, out var image) || image.Content.Length > MaxInlineImageBytes)
-                    return match.Value;
-                attachments.RemoveAll(a => ReferenceEquals(a.Content, image.Content));
-                return $"data:{image.MimeType};base64,{Convert.ToBase64String(image.Content)}";
-            },
-            RegexOptions.IgnoreCase);
     }
 
     private async Task<byte[]> ReadAttachmentContentAsync(
@@ -626,6 +654,12 @@ public sealed class GmailInboxService : IGmailInboxService, IDisposable
     private static string? Header(IEnumerable<MessagePartHeader> headers, string name) =>
         headers.FirstOrDefault(
             header => string.Equals(header.Name, name, StringComparison.OrdinalIgnoreCase))?.Value;
+
+    private static string? NormalizeContentId(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        return raw.Trim().Trim('<', '>', '"', '\'');
+    }
 
     private static byte[] DecodeBase64Url(string value)
     {

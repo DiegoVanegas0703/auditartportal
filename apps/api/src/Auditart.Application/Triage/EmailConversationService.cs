@@ -249,6 +249,8 @@ public sealed class EmailConversationService
                     .ToList()))
             .ToListAsync(ct);
 
+        messages = await EmbedPendingCidImagesAsync(messages, ct);
+
         var attachments = messages.SelectMany(m => m.Attachments).ToList();
         return new EmailRequestDetailDto(
             request.Id,
@@ -264,6 +266,78 @@ public sealed class EmailConversationService
             messages,
             attachments,
             BuildReplyDefaults(messages, request.Subject, ResolveMailboxForRequest(request)));
+    }
+
+    /// <summary>
+    /// Correos ya guardados pueden tener <c>cid:</c> sin data-URI; re-embebe desde adjuntos en storage.
+    /// </summary>
+    private async Task<List<EmailMessageDto>> EmbedPendingCidImagesAsync(
+        List<EmailMessageDto> messages,
+        CancellationToken ct)
+    {
+        var pending = messages
+            .Where(m => m.BodyHtml is not null
+                && m.BodyHtml.Contains("cid:", StringComparison.OrdinalIgnoreCase)
+                && m.Attachments.Count > 0)
+            .ToList();
+        if (pending.Count == 0) return messages;
+
+        var messageIds = pending.Select(m => m.Id).ToHashSet();
+        var stored = await _db.EmailAttachments
+            .AsNoTracking()
+            .Where(a => messageIds.Contains(a.EmailMessageId))
+            .Select(a => new { a.EmailMessageId, a.FileName, a.ContentType, a.S3Key })
+            .ToListAsync(ct);
+
+        var byMessage = stored.GroupBy(a => a.EmailMessageId).ToDictionary(g => g.Key, g => g.ToList());
+        var result = new List<EmailMessageDto>(messages.Count);
+
+        foreach (var message in messages)
+        {
+            if (!byMessage.TryGetValue(message.Id, out var files)
+                || message.BodyHtml is null
+                || !message.BodyHtml.Contains("cid:", StringComparison.OrdinalIgnoreCase))
+            {
+                result.Add(message);
+                continue;
+            }
+
+            var parts = new List<EmailInlineImageEmbedder.ImagePart>();
+            foreach (var file in files)
+            {
+                if (!EmailInlineImageEmbedder.LooksLikeImage(file.ContentType, file.FileName)
+                    && !file.ContentType.Equals("application/octet-stream", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                try
+                {
+                    var download = await _storage.DownloadAsync(file.S3Key, ct);
+                    await using (download.Content)
+                    {
+                        using var ms = new MemoryStream();
+                        await download.Content.CopyToAsync(ms, ct);
+                        var bytes = ms.ToArray();
+                        if (bytes.Length == 0) continue;
+                        parts.Add(new EmailInlineImageEmbedder.ImagePart(
+                            file.FileName,
+                            file.FileName,
+                            file.ContentType,
+                            bytes));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "No se pudo leer adjunto {Key} para embebido cid", file.S3Key);
+                }
+            }
+
+            var embedded = parts.Count > 0
+                ? EmailInlineImageEmbedder.Embed(message.BodyHtml, parts)
+                : message.BodyHtml;
+            result.Add(message with { BodyHtml = embedded });
+        }
+
+        return result;
     }
 
     public async Task IgnoreAsync(Guid requestId, Guid userId, CancellationToken ct)
