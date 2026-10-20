@@ -28,8 +28,11 @@ public static class WordDocxPlaceholderFiller
         using (var doc = WordprocessingDocument.Open(ms, true))
         {
             var main = doc.MainDocumentPart
-                ?? throw new InvalidOperationException("Documento Word inválido.");
-            ReplaceTextTokens(main.Document.Body!, values);
+                ?? throw new InvalidOperationException(
+                    "Documento Word inválido (MainDocumentPart ausente). Revisá que la plantilla .docx tenga rutas ZIP con '/'.");
+            if (main.Document?.Body is null)
+                throw new InvalidOperationException("Documento Word inválido (Body vacío).");
+            ReplaceTextTokens(main.Document.Body, values);
 
             if (firmaBytes is { Length: > 0 })
                 ReplaceFirmaTokenWithImage(main, firmaBytes, firmaContentType);

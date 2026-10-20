@@ -320,10 +320,13 @@ public class AuditService : Entity
         if (!AuditStatusMachine.CanTransition(Status, next))
         {
             throw new DomainException(
-                $"Transición inválida: {Status} → {next}. Flujo: Rojo → Amarillo → Azul/Verde → Celeste.");
+                $"Transición inválida: {Status} → {next}. Se puede avanzar o devolver un estado (p. ej. Amarillo→Rojo, Verde→Azul).");
         }
 
-        if (next == AuditStatus.Verde && !HasAutorizacion())
+        // La autorización solo se exige al avanzar a Verde, no al devolver estado.
+        if (next == AuditStatus.Verde
+            && !AuditStatusMachine.IsBackward(Status, next)
+            && !HasAutorizacion())
         {
             throw new DomainException(
                 "Para pasar a Verde hace falta la autorización (código/radicado y/o PDF). Si aún no llegó, pasá a Azul para esperarla.");
@@ -463,7 +466,7 @@ public class AuditService : Entity
 
     public void UpdateNotes(string? notas)
     {
-        Notas = notas;
+        Notas = string.IsNullOrWhiteSpace(notas) ? null : notas.Trim();
         Touch();
     }
 

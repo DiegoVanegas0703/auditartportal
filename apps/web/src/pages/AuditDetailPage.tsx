@@ -57,7 +57,9 @@ function conciliadoEspecialista(base: number, pct: 50 | 100): number {
   return Math.round(producto * (1 + RECARGO_ART_ESPECIALISTA) * 100) / 100
 }
 
-const TRANSITIONS: Record<
+const STATUS_ORDER: AuditStatus[] = ['rojo', 'amarillo', 'azul', 'verde', 'celeste']
+
+const FORWARD_TRANSITIONS: Record<
   AuditStatus,
   { next: AuditStatus; label: string; condition?: string }[]
 > = {
@@ -90,12 +92,54 @@ const TRANSITIONS: Record<
   celeste: [],
 }
 
+const BACK_TRANSITIONS: Record<
+  AuditStatus,
+  { next: AuditStatus; label: string; condition?: string }[]
+> = {
+  rojo: [],
+  amarillo: [
+    {
+      next: 'rojo',
+      label: 'Devolver a Rojo',
+      condition: 'Si hay que volver a negociar profesional / precios',
+    },
+  ],
+  azul: [
+    {
+      next: 'amarillo',
+      label: 'Devolver a Amarillo',
+      condition: 'Si el turno o la consulta hay que rearmar',
+    },
+  ],
+  verde: [
+    {
+      next: 'azul',
+      label: 'Devolver a Azul',
+      condition: 'Si falta algo de autorización / consulta',
+    },
+    {
+      next: 'amarillo',
+      label: 'Devolver a Amarillo',
+      condition: 'Si hay que reasignar turno',
+    },
+  ],
+  celeste: [
+    {
+      next: 'verde',
+      label: 'Reabrir a Verde',
+      condition: 'Si el cierre fue por error',
+    },
+  ],
+}
+
 export function AuditDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { permissions, user } = useAuth()
   const emailSignature = user?.emailSignatureHtml ?? ''
-  const { audits, updateAuditStatus, refresh } = useAudits()
+  const { audits, updateAuditStatus, updateAudit, refresh } = useAudits()
   const [toast, setToast] = useState('')
+  const [notasDraft, setNotasDraft] = useState('')
+  const [notasBusy, setNotasBusy] = useState(false)
   const [correspondence, setCorrespondence] = useState<EmailRequestDetail | null>(null)
   const [corrLoading, setCorrLoading] = useState(false)
   const [corrError, setCorrError] = useState<string | null>(null)
@@ -265,6 +309,10 @@ export function AuditDetailPage() {
     }
   }, [id])
 
+  useEffect(() => {
+    setNotasDraft(audit?.notas ?? '')
+  }, [audit?.id, audit?.notas])
+
   if (!audit) {
     if (auditLoading) {
       return (
@@ -286,7 +334,8 @@ export function AuditDetailPage() {
     )
   }
 
-  const transitions = TRANSITIONS[audit.status]
+  const forwardTransitions = FORWARD_TRANSITIONS[audit.status]
+  const backTransitions = BACK_TRANSITIONS[audit.status]
 
   const showToast = (msg: string) => {
     setToast(msg)
@@ -295,7 +344,8 @@ export function AuditDetailPage() {
 
   const handleTransition = async (next: AuditStatus) => {
     try {
-      if (next === 'amarillo') {
+      // Solo al avanzar desde Rojo se pide turno/prestador.
+      if (next === 'amarillo' && audit.status === 'rojo') {
         const tomorrow = new Date(Date.now() + 86400000)
         const pad = (n: number) => String(n).padStart(2, '0')
         setTurnoFechaLocal(
@@ -310,7 +360,10 @@ export function AuditDetailPage() {
         return
       }
 
-      if (next === 'verde') {
+      // Al devolver estado no exigir autorización; solo al avanzar a Verde.
+      const goingBack =
+        STATUS_ORDER.indexOf(next) < STATUS_ORDER.indexOf(audit.status)
+      if (next === 'verde' && !goingBack) {
         const hasAuth =
           audit.autorizacionART ||
           Boolean(audit.autorizacionCodigo) ||
@@ -789,7 +842,7 @@ export function AuditDetailPage() {
               Autorización
             </button>
           )}
-          {transitions.map((t) => (
+          {forwardTransitions.map((t) => (
             <button
               key={t.next}
               type="button"
@@ -797,6 +850,16 @@ export function AuditDetailPage() {
               className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm font-semibold text-auditart-navy hover:border-auditart-blue hover:text-auditart-blue"
             >
               → {STATUS_LABELS[t.next]}
+            </button>
+          ))}
+          {backTransitions.map((t) => (
+            <button
+              key={`back-${t.next}`}
+              type="button"
+              onClick={() => void handleTransition(t.next)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 text-sm font-semibold text-amber-900 hover:border-amber-400"
+            >
+              ← {STATUS_LABELS[t.next]}
             </button>
           ))}
           {audit.status === 'rojo' && !audit.isChronicPeriodic && (
@@ -980,45 +1043,103 @@ export function AuditDetailPage() {
         </div>
         </DetailAccordion>
 
-        {audit.notas && (
-          <DetailAccordion title="Notas" defaultOpen>
-          <div className="p-6">
-            <p className="rounded-xl bg-auditart-light p-4 text-sm text-auditart-navy/80">
-              {audit.notas}
-            </p>
+        <DetailAccordion title="Notas del caso" defaultOpen>
+          <div className="space-y-3 p-6">
+            <textarea
+              value={notasDraft}
+              onChange={(e) => setNotasDraft(e.target.value)}
+              rows={4}
+              placeholder="Aclaraciones operativas, contexto clínico, acuerdos con ART…"
+              className="input-modern w-full px-3 py-2 text-sm"
+            />
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[11px] text-auditart-muted">
+                Editable en cualquier estado. Guardá para que quede en el caso.
+              </p>
+              <button
+                type="button"
+                disabled={notasBusy || notasDraft === (audit.notas ?? '')}
+                onClick={() => {
+                  setNotasBusy(true)
+                  void updateAudit(audit.id, { notas: notasDraft })
+                    .then(() => showToast('Notas guardadas'))
+                    .catch((e: unknown) =>
+                      showToast(e instanceof Error ? e.message : 'No se pudieron guardar las notas'),
+                    )
+                    .finally(() => setNotasBusy(false))
+                }}
+                className="btn-primary inline-flex items-center gap-2 text-sm disabled:opacity-50"
+              >
+                {notasBusy && <Loader2 size={14} className="animate-spin" />}
+                Guardar notas
+              </button>
+            </div>
           </div>
-          </DetailAccordion>
-        )}
+        </DetailAccordion>
 
         {/* Transitions */}
-        {transitions.length > 0 && (
-          <div className="border-t border-gray-100 p-6">
-            <h3 className="mb-4 text-[10px] font-bold uppercase tracking-[0.15em] text-auditart-muted">
-              Avanzar estado
-            </h3>
-            <div className="space-y-3">
-              {transitions.map((t) => (
-                <button
-                  key={t.next}
-                  onClick={() => void handleTransition(t.next)}
-                  className="group flex w-full items-center justify-between rounded-2xl border-2 border-gray-100 bg-white p-5 text-left transition-all hover:border-auditart-blue hover:shadow-md hover:shadow-auditart-blue/8"
-                >
-                  <div>
-                    <p className="font-bold text-auditart-navy group-hover:text-auditart-blue">
-                      {t.label}
-                    </p>
-                    {t.condition && (
-                      <p className="mt-0.5 text-xs text-auditart-muted">{t.condition}</p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <StatusBadge status={audit.status} compact />
-                    <ChevronRight size={16} className="text-auditart-muted" />
-                    <StatusBadge status={t.next} compact />
-                  </div>
-                </button>
-              ))}
-            </div>
+        {(forwardTransitions.length > 0 || backTransitions.length > 0) && (
+          <div className="space-y-6 border-t border-gray-100 p-6">
+            {forwardTransitions.length > 0 && (
+              <div>
+                <h3 className="mb-4 text-[10px] font-bold uppercase tracking-[0.15em] text-auditart-muted">
+                  Avanzar estado
+                </h3>
+                <div className="space-y-3">
+                  {forwardTransitions.map((t) => (
+                    <button
+                      key={t.next}
+                      type="button"
+                      onClick={() => void handleTransition(t.next)}
+                      className="group flex w-full items-center justify-between rounded-2xl border-2 border-gray-100 bg-white p-5 text-left transition-all hover:border-auditart-blue hover:shadow-md hover:shadow-auditart-blue/8"
+                    >
+                      <div>
+                        <p className="font-bold text-auditart-navy group-hover:text-auditart-blue">
+                          {t.label}
+                        </p>
+                        {t.condition && (
+                          <p className="mt-0.5 text-xs text-auditart-muted">{t.condition}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <StatusBadge status={audit.status} compact />
+                        <ChevronRight size={16} className="text-auditart-muted" />
+                        <StatusBadge status={t.next} compact />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {backTransitions.length > 0 && (
+              <div>
+                <h3 className="mb-4 text-[10px] font-bold uppercase tracking-[0.15em] text-auditart-muted">
+                  Devolver estado
+                </h3>
+                <div className="space-y-3">
+                  {backTransitions.map((t) => (
+                    <button
+                      key={`back-${t.next}`}
+                      type="button"
+                      onClick={() => void handleTransition(t.next)}
+                      className="group flex w-full items-center justify-between rounded-2xl border-2 border-amber-100 bg-amber-50/40 p-5 text-left transition-all hover:border-amber-400 hover:shadow-md"
+                    >
+                      <div>
+                        <p className="font-bold text-amber-950">{t.label}</p>
+                        {t.condition && (
+                          <p className="mt-0.5 text-xs text-amber-800/80">{t.condition}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <StatusBadge status={audit.status} compact />
+                        <ChevronRight size={16} className="rotate-180 text-amber-700" />
+                        <StatusBadge status={t.next} compact />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

@@ -115,12 +115,15 @@ Rojo → Amarillo → Azul | Verde → Celeste
 | Rojo | Buscar profesional / negociar precios |
 | Amarillo | Turno coordinado (+ informe Word + auto-aviso WA opcional) |
 | Azul | Consulta hecha; esperar autorización |
-| Verde | Listo facturación (**exige autorización**) |
+| Verde | Listo facturación (**exige autorización** al avanzar) |
 | Celeste | Pagado / cerrada |
 
 - Amarillo puede ir a Verde si ya hay auth; si no, a Azul.
+- Se puede **devolver estado** (p. ej. Amarillo→Rojo, Verde→Azul, Celeste→Verde).
+- Notas del caso editables en cualquier momento.
 - Autorización (código y/o PDF) se puede cargar **en cualquier momento**.
 - “Cuenta pago anticipado” fue reemplazado por **Celeste**.
+- Plantillas Word de informe deben ir en ZIP con rutas `/` (no `\`); si falla “Documento Word inválido”, regenerar plantillas.
 
 ### Coordinación tardía
 
