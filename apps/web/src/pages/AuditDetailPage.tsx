@@ -121,6 +121,8 @@ export function AuditDetailPage() {
   const [turnoFechaLocal, setTurnoFechaLocal] = useState('')
   const [prestadorQuery, setPrestadorQuery] = useState('')
   const [prestadorOptions, setPrestadorOptions] = useState<PrestadorOptionDto[]>([])
+  const [prestadorTotal, setPrestadorTotal] = useState(0)
+  const [prestadorSoloActivos, setPrestadorSoloActivos] = useState(true)
   const [selectedPrestadorId, setSelectedPrestadorId] = useState('')
   const [turnoBusy, setTurnoBusy] = useState(false)
   const [turnoError, setTurnoError] = useState<string | null>(null)
@@ -301,12 +303,10 @@ export function AuditDetailPage() {
         )
         setSelectedPrestadorId(audit.prestadorId ?? '')
         setPrestadorQuery(audit.profesional ?? '')
+        setPrestadorSoloActivos(true)
         setTurnoError(null)
         setTurnoModalOpen(true)
-        void prestadoresApi
-          .active({ q: audit.profesional, take: 40 })
-          .then(setPrestadorOptions)
-          .catch(() => setPrestadorOptions([]))
+        void loadPrestadoresParaTurno(audit.profesional ?? '', true)
         return
       }
 
@@ -333,14 +333,25 @@ export function AuditDetailPage() {
     }
   }
 
-  const searchPrestadores = async (term: string) => {
-    setPrestadorQuery(term)
-    setSelectedPrestadorId('')
+  const loadPrestadoresParaTurno = async (term: string, soloActivos: boolean) => {
     try {
-      setPrestadorOptions(await prestadoresApi.active({ q: term.trim() || undefined, take: 40 }))
+      const page = await prestadoresApi.active({
+        q: term.trim() || undefined,
+        take: 500,
+        soloActivos,
+      })
+      setPrestadorOptions(page.items)
+      setPrestadorTotal(page.total)
     } catch {
       setPrestadorOptions([])
+      setPrestadorTotal(0)
     }
+  }
+
+  const searchPrestadores = (term: string) => {
+    setPrestadorQuery(term)
+    setSelectedPrestadorId('')
+    void loadPrestadoresParaTurno(term, prestadorSoloActivos)
   }
 
   const confirmTurnoAmarillo = async () => {
@@ -1246,23 +1257,40 @@ export function AuditDetailPage() {
                 />
               </label>
               <label className="mt-3 block text-xs font-semibold text-auditart-gray">
-                Buscar profesional (cartilla Doctores)
+                Buscar profesional (misma cartilla que Doctores)
                 <input
                   value={prestadorQuery}
-                  onChange={(e) => void searchPrestadores(e.target.value)}
-                  placeholder="Nombre, localidad, especialidad…"
+                  onChange={(e) => searchPrestadores(e.target.value)}
+                  placeholder="Nombre, localidad, especialidad, CUIT…"
                   className="input-modern mt-1 w-full px-3 py-2 text-sm"
                 />
               </label>
+              <label className="mt-2 flex items-center gap-2 text-xs text-auditart-navy">
+                <input
+                  type="checkbox"
+                  checked={prestadorSoloActivos}
+                  onChange={(e) => {
+                    const next = e.target.checked
+                    setPrestadorSoloActivos(next)
+                    setSelectedPrestadorId('')
+                    void loadPrestadoresParaTurno(prestadorQuery, next)
+                  }}
+                />
+                Solo activos (igual que en Doctores)
+              </label>
               <p className="mt-1 text-[11px] text-auditart-muted">
-                Tenés que hacer clic en un resultado de la lista. Escribir el nombre solo no lo
-                agrega a Doctores.
+                Hacé clic en un resultado de la lista. Mostrando {prestadorOptions.length}
+                {prestadorTotal > prestadorOptions.length
+                  ? ` de ${prestadorTotal} — refiná la búsqueda`
+                  : prestadorTotal > 0
+                    ? ` de ${prestadorTotal}`
+                    : ''}
+                .
               </p>
-              <div className="mt-2 max-h-48 overflow-y-auto rounded-xl border border-gray-100">
+              <div className="mt-2 max-h-56 overflow-y-auto rounded-xl border border-gray-100">
                 {prestadorOptions.length === 0 ? (
                   <p className="px-3 py-4 text-xs text-auditart-muted">
-                    Sin resultados activos. Importá o creá el prestador en Doctores (y revisá el
-                    filtro “Solo activos”).
+                    Sin resultados. Probá otro texto o desmarcá “Solo activos”.
                   </p>
                 ) : (
                   prestadorOptions.map((p) => (
@@ -1277,7 +1305,14 @@ export function AuditDetailPage() {
                         selectedPrestadorId === p.id ? 'bg-auditart-blue/8' : ''
                       }`}
                     >
-                      <span className="font-semibold text-auditart-navy">{p.nombre}</span>
+                      <span className="font-semibold text-auditart-navy">
+                        {p.nombre}
+                        {!p.isActive && (
+                          <span className="ml-2 text-[10px] font-bold uppercase text-amber-700">
+                            inactivo
+                          </span>
+                        )}
+                      </span>
                       <span className="text-xs text-auditart-muted">
                         {[p.provincia, p.localidad, p.especialidad].filter(Boolean).join(' · ')}
                       </span>

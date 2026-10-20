@@ -449,9 +449,9 @@ public class ServicesController : ControllerBase
                 {
                     var prestador = await _db.Prestadores
                         .AsNoTracking()
-                        .FirstOrDefaultAsync(p => p.Id == prestadorId && p.IsActive, ct);
+                        .FirstOrDefaultAsync(p => p.Id == prestadorId, ct);
                     if (prestador is null)
-                        return BadRequest(new { error = "Prestador no encontrado o inactivo." });
+                        return BadRequest(new { error = "Prestador no encontrado en la cartilla." });
                     service.SetTurno(
                         request.FechaTurnoUtc.Value,
                         string.IsNullOrWhiteSpace(request.Profesional) ? prestador.Nombre : request.Profesional,

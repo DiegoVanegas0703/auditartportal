@@ -40,20 +40,7 @@ public sealed class PrestadorService
             query = query.Where(x => x.Provincia.Contains(p));
         }
 
-        if (!string.IsNullOrWhiteSpace(q))
-        {
-            var term = q.Trim().ToLower();
-            query = query.Where(x =>
-                x.Nombre.ToLower().Contains(term)
-                || (x.Localidad != null && x.Localidad.ToLower().Contains(term))
-                || (x.Especialidad != null && x.Especialidad.ToLower().Contains(term))
-                || (x.Cuit != null && x.Cuit.ToLower().Contains(term))
-                || (x.Servicio != null && x.Servicio.ToLower().Contains(term))
-                || (x.Dni != null && x.Dni.ToLower().Contains(term))
-                || (x.Matricula != null && x.Matricula.ToLower().Contains(term))
-                || (x.Telefonos != null && x.Telefonos.ToLower().Contains(term))
-                || (x.Domicilio != null && x.Domicilio.ToLower().Contains(term)));
-        }
+        query = ApplySearch(query, q);
 
         var total = await query.CountAsync(ct);
         var totalPages = Math.Max(1, (int)Math.Ceiling(total / (double)pageSize));
@@ -84,14 +71,21 @@ public sealed class PrestadorService
             provincias);
     }
 
-    public async Task<IReadOnlyList<PrestadorOptionDto>> ListActiveOptionsAsync(
+    /// <summary>
+    /// Misma cartilla que el módulo Doctores (mismos filtros de búsqueda), para operadores al coordinar turno.
+    /// </summary>
+    public async Task<PrestadorOptionsPageDto> ListOptionsAsync(
         string? q,
         string? provincia,
+        bool soloActivos,
         int take,
         CancellationToken ct)
     {
-        take = Math.Clamp(take, 1, 500);
-        var query = _db.Prestadores.AsNoTracking().Where(p => p.IsActive);
+        take = Math.Clamp(take, 1, 2000);
+        var query = _db.Prestadores.AsNoTracking().AsQueryable();
+
+        if (soloActivos)
+            query = query.Where(p => p.IsActive);
 
         if (!string.IsNullOrWhiteSpace(provincia))
         {
@@ -99,21 +93,13 @@ public sealed class PrestadorService
             query = query.Where(x => x.Provincia.Contains(p));
         }
 
-        if (!string.IsNullOrWhiteSpace(q))
-        {
-            var term = q.Trim().ToLower();
-            query = query.Where(x =>
-                x.Nombre.ToLower().Contains(term)
-                || (x.Localidad != null && x.Localidad.ToLower().Contains(term))
-                || (x.Especialidad != null && x.Especialidad.ToLower().Contains(term))
-                || (x.Cuit != null && x.Cuit.ToLower().Contains(term))
-                || (x.Servicio != null && x.Servicio.ToLower().Contains(term))
-                || (x.Dni != null && x.Dni.ToLower().Contains(term))
-                || (x.Matricula != null && x.Matricula.ToLower().Contains(term)));
-        }
+        query = ApplySearch(query, q);
 
-        return await query
+        var total = await query.CountAsync(ct);
+        var items = await query
             .OrderBy(x => x.Nombre)
+            .ThenBy(x => x.Provincia)
+            .ThenBy(x => x.Localidad)
             .Take(take)
             .Select(x => new PrestadorOptionDto(
                 x.Id,
@@ -128,8 +114,27 @@ public sealed class PrestadorService
                 x.ValorConsulta,
                 x.ValoresAcordados,
                 x.FormaPago,
-                x.FirmaS3Key != null))
+                x.FirmaS3Key != null,
+                x.IsActive))
             .ToListAsync(ct);
+
+        return new PrestadorOptionsPageDto(items, total, take);
+    }
+
+    private static IQueryable<Prestador> ApplySearch(IQueryable<Prestador> query, string? q)
+    {
+        if (string.IsNullOrWhiteSpace(q)) return query;
+        var term = q.Trim().ToLower();
+        return query.Where(x =>
+            x.Nombre.ToLower().Contains(term)
+            || (x.Localidad != null && x.Localidad.ToLower().Contains(term))
+            || (x.Especialidad != null && x.Especialidad.ToLower().Contains(term))
+            || (x.Cuit != null && x.Cuit.ToLower().Contains(term))
+            || (x.Servicio != null && x.Servicio.ToLower().Contains(term))
+            || (x.Dni != null && x.Dni.ToLower().Contains(term))
+            || (x.Matricula != null && x.Matricula.ToLower().Contains(term))
+            || (x.Telefonos != null && x.Telefonos.ToLower().Contains(term))
+            || (x.Domicilio != null && x.Domicilio.ToLower().Contains(term)));
     }
 
     public async Task<PrestadorDto> GetAsync(Guid id, CancellationToken ct)
@@ -615,7 +620,13 @@ public sealed record PrestadorOptionDto(
     decimal? ValorConsulta,
     string? ValoresAcordados,
     string? FormaPago,
-    bool TieneFirma);
+    bool TieneFirma,
+    bool IsActive);
+
+public sealed record PrestadorOptionsPageDto(
+    IReadOnlyList<PrestadorOptionDto> Items,
+    int Total,
+    int Take);
 
 public sealed record UpsertPrestadorRequest(
     string Nombre,

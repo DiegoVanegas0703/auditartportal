@@ -36,16 +36,17 @@ public class PrestadoresController : ControllerBase
         return Ok(await _service.ListAsync(q, provincia, isActive, page, pageSize, ct));
     }
 
-    /// <summary>Opciones activas para operadores al coordinar turno.</summary>
+    /// <summary>Misma cartilla que Doctores, para operadores al coordinar turno.</summary>
     [HttpGet("active")]
-    public async Task<ActionResult<IReadOnlyList<PrestadorOptionDto>>> Active(
+    public async Task<ActionResult<PrestadorOptionsPageDto>> Active(
         [FromQuery] string? q,
         [FromQuery] string? provincia,
-        [FromQuery] int take = 100,
+        [FromQuery] bool soloActivos = true,
+        [FromQuery] int take = 300,
         CancellationToken ct = default)
     {
         if (!PermissionService.CanOperateBoard(GetRole())) return Forbid();
-        return Ok(await _service.ListActiveOptionsAsync(q, provincia, take, ct));
+        return Ok(await _service.ListOptionsAsync(q, provincia, soloActivos, take, ct));
     }
 
     [HttpGet("{id:guid}")]

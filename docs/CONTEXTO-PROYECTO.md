@@ -145,7 +145,8 @@ Rojo → Amarillo → Azul | Verde → Celeste
 - CRUD `/doctores`, import Excel cartilla.
 - **No confundir** con el operador del triage: triage asigna un *usuario interno*; el médico es un *prestador* de la cartilla.
 - Al pasar a Amarillo hay que **elegir un resultado de la cartilla** (no alcanza con escribir el nombre a mano).
-- Búsqueda case-insensitive; filtro “Solo activos” por defecto en el módulo.
+- La búsqueda del turno usa la **misma cartilla** que Doctores (`/api/prestadores/active`, hasta 500 filas, mismos filtros; checkbox “Solo activos”).
+- Búsqueda case-insensitive.
 - **Firma del médico** (PNG/JPG) se sube en la ficha del prestador; se usa en informes Word.
 
 ### Colas

@@ -1225,6 +1225,13 @@ export interface PrestadorOptionDto {
   valoresAcordados?: string | null
   formaPago?: string | null
   tieneFirma: boolean
+  isActive: boolean
+}
+
+export interface PrestadorOptionsPageDto {
+  items: PrestadorOptionDto[]
+  total: number
+  take: number
 }
 
 export interface PrestadorImportResult {
@@ -1302,13 +1309,19 @@ export const prestadoresApi = {
     const qs = sp.toString()
     return apiFetch<PrestadorPageDto>(`/api/prestadores${qs ? `?${qs}` : ''}`)
   },
-  active: (params?: { q?: string; provincia?: string; take?: number }) => {
+  active: (params?: {
+    q?: string
+    provincia?: string
+    take?: number
+    soloActivos?: boolean
+  }) => {
     const sp = new URLSearchParams()
     if (params?.q) sp.set('q', params.q)
     if (params?.provincia) sp.set('provincia', params.provincia)
     if (params?.take) sp.set('take', String(params.take))
+    if (params?.soloActivos !== undefined) sp.set('soloActivos', String(params.soloActivos))
     const qs = sp.toString()
-    return apiFetch<PrestadorOptionDto[]>(`/api/prestadores/active${qs ? `?${qs}` : ''}`)
+    return apiFetch<PrestadorOptionsPageDto>(`/api/prestadores/active${qs ? `?${qs}` : ''}`)
   },
   create: (body: PrestadorUpsertBody) =>
     apiFetch<PrestadorDto>('/api/prestadores', {
