@@ -62,7 +62,8 @@ public sealed class AiAssistantService
             throw new InvalidOperationException(
                 "Este asistente solo tiene link a GEM. Abrí el enlace externo o configurá un system prompt.");
 
-        var model = _config["Gemini:Model"] ?? "gemini-2.0-flash";
+        // gemini-2.0-flash fue discontinuado (404). Preferir 2.5+ o alias latest.
+        var model = _config["Gemini:Model"] ?? "gemini-2.5-flash";
         var apiKey = _config["Gemini:ApiKey"]!;
         var url =
             $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}";
@@ -105,7 +106,11 @@ public sealed class AiAssistantService
         if (!res.IsSuccessStatusCode)
         {
             _logger.LogWarning("Gemini error {Status}: {Body}", (int)res.StatusCode, body);
-            throw new InvalidOperationException($"Gemini respondió {(int)res.StatusCode}. Revisá la API key / cuota.");
+            var hint = (int)res.StatusCode == 404
+                ? $" Modelo '{model}' no disponible (si usás gemini-2.0-flash, cambiá a gemini-2.5-flash)."
+                : " Revisá API key / cuota.";
+            var detail = body.Length > 220 ? body[..220] + "…" : body;
+            throw new InvalidOperationException($"Gemini respondió {(int)res.StatusCode}.{hint} {detail}");
         }
 
         using var doc = JsonDocument.Parse(body);

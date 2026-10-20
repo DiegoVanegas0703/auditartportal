@@ -216,7 +216,7 @@ Nota Meta: mensajes de texto libres pueden fallar fuera de la ventana de 24 h; e
 
 ## 8. Gemini / asistentes IA
 
-- Config: `Gemini__Enabled`, `Gemini__ApiKey`, `Gemini__Model`.
+- Config: `Gemini__Enabled`, `Gemini__ApiKey`, `Gemini__Model` (usar `gemini-2.5-flash`; `gemini-2.0-flash` da 404).
 - Asistentes en DB (`AiAssistant`): nombre, prompt, URL externa de GEM, flag chat.
 - UI: links a GEMs + chat embebido cuando `supportsChat`.
 - Servicio: `AiAssistantService`.
