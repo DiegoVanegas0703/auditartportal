@@ -335,6 +335,7 @@ export function AuditDetailPage() {
 
   const searchPrestadores = async (term: string) => {
     setPrestadorQuery(term)
+    setSelectedPrestadorId('')
     try {
       setPrestadorOptions(await prestadoresApi.active({ q: term.trim() || undefined, take: 40 }))
     } catch {
@@ -348,8 +349,10 @@ export function AuditDetailPage() {
       return
     }
     const selected = prestadorOptions.find((p) => p.id === selectedPrestadorId)
-    if (!selected && !prestadorQuery.trim()) {
-      setTurnoError('Seleccioná un profesional de la cartilla o escribí el nombre.')
+    if (!selected) {
+      setTurnoError(
+        'Seleccioná un profesional de la lista (cartilla Doctores). Si no aparece, importalo o crealo en Doctores y desmarcá “Solo activos” si estuviera inactivo.',
+      )
       return
     }
     setTurnoBusy(true)
@@ -1243,7 +1246,7 @@ export function AuditDetailPage() {
                 />
               </label>
               <label className="mt-3 block text-xs font-semibold text-auditart-gray">
-                Buscar profesional
+                Buscar profesional (cartilla Doctores)
                 <input
                   value={prestadorQuery}
                   onChange={(e) => void searchPrestadores(e.target.value)}
@@ -1251,11 +1254,15 @@ export function AuditDetailPage() {
                   className="input-modern mt-1 w-full px-3 py-2 text-sm"
                 />
               </label>
+              <p className="mt-1 text-[11px] text-auditart-muted">
+                Tenés que hacer clic en un resultado de la lista. Escribir el nombre solo no lo
+                agrega a Doctores.
+              </p>
               <div className="mt-2 max-h-48 overflow-y-auto rounded-xl border border-gray-100">
                 {prestadorOptions.length === 0 ? (
                   <p className="px-3 py-4 text-xs text-auditart-muted">
-                    Sin resultados activos. Importá la cartilla en Doctores o escribí el nombre
-                    manualmente.
+                    Sin resultados activos. Importá o creá el prestador en Doctores (y revisá el
+                    filtro “Solo activos”).
                   </p>
                 ) : (
                   prestadorOptions.map((p) => (

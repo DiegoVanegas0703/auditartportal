@@ -1097,7 +1097,11 @@ export function TriagePage() {
                 <div className="border-t border-gray-100 bg-gray-50/50 p-6">
                   <p className="mb-4 flex items-center gap-2 text-sm font-bold text-auditart-navy">
                     <Users size={16} className="text-auditart-blue" />
-                    Derivar (elegí cola y operador)
+                    Derivar (elegí cola y operador interno)
+                  </p>
+                  <p className="mb-3 text-xs text-auditart-muted">
+                    El operador es un usuario de Auditart (quien lleva el caso). El médico/prestador
+                    de la cartilla se elige después, al pasar el caso a Amarillo.
                   </p>
 
                   <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -1120,7 +1124,7 @@ export function TriagePage() {
                   </div>
 
                   <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-auditart-muted">
-                    Operador · {queueHint}
+                    Operador interno · {queueHint}
                   </label>
                   <select
                     value={operadorId}

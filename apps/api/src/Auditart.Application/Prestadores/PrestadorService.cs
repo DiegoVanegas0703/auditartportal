@@ -42,13 +42,17 @@ public sealed class PrestadorService
 
         if (!string.IsNullOrWhiteSpace(q))
         {
-            var term = q.Trim();
+            var term = q.Trim().ToLower();
             query = query.Where(x =>
-                x.Nombre.Contains(term)
-                || (x.Localidad != null && x.Localidad.Contains(term))
-                || (x.Especialidad != null && x.Especialidad.Contains(term))
-                || (x.Cuit != null && x.Cuit.Contains(term))
-                || (x.Servicio != null && x.Servicio.Contains(term)));
+                x.Nombre.ToLower().Contains(term)
+                || (x.Localidad != null && x.Localidad.ToLower().Contains(term))
+                || (x.Especialidad != null && x.Especialidad.ToLower().Contains(term))
+                || (x.Cuit != null && x.Cuit.ToLower().Contains(term))
+                || (x.Servicio != null && x.Servicio.ToLower().Contains(term))
+                || (x.Dni != null && x.Dni.ToLower().Contains(term))
+                || (x.Matricula != null && x.Matricula.ToLower().Contains(term))
+                || (x.Telefonos != null && x.Telefonos.ToLower().Contains(term))
+                || (x.Domicilio != null && x.Domicilio.ToLower().Contains(term)));
         }
 
         var total = await query.CountAsync(ct);
@@ -97,12 +101,15 @@ public sealed class PrestadorService
 
         if (!string.IsNullOrWhiteSpace(q))
         {
-            var term = q.Trim();
+            var term = q.Trim().ToLower();
             query = query.Where(x =>
-                x.Nombre.Contains(term)
-                || x.Localidad.Contains(term)
-                || (x.Especialidad != null && x.Especialidad.Contains(term))
-                || (x.Cuit != null && x.Cuit.Contains(term)));
+                x.Nombre.ToLower().Contains(term)
+                || (x.Localidad != null && x.Localidad.ToLower().Contains(term))
+                || (x.Especialidad != null && x.Especialidad.ToLower().Contains(term))
+                || (x.Cuit != null && x.Cuit.ToLower().Contains(term))
+                || (x.Servicio != null && x.Servicio.ToLower().Contains(term))
+                || (x.Dni != null && x.Dni.ToLower().Contains(term))
+                || (x.Matricula != null && x.Matricula.ToLower().Contains(term)));
         }
 
         return await query

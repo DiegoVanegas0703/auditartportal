@@ -171,8 +171,13 @@ export function PrestadoresPage() {
     <div className="animate-fade-in">
       <PageHeader
         title="Doctores / Prestadores"
-        subtitle="Cartilla operativa · importar Excel PRESTADORES · Admin / Jefatura"
+        subtitle="Cartilla de médicos (no son los operadores del triage) · Excel PRESTADORES · Admin / Jefatura"
       />
+      <p className="mb-4 text-xs text-auditart-muted">
+        Si no encontrás a alguien: desmarcá “Solo activos”, buscá sin mayúsculas/acentos exactos, o
+        verificá que esté en la cartilla importada. El operador que elegís en Triage es un usuario
+        interno, no un doctor de esta lista.
+      </p>
 
       {toast && (
         <div className="mb-4 rounded-xl bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">
