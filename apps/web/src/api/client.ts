@@ -26,8 +26,14 @@ type ApiError = { error?: string; title?: string; detail?: string }
 async function parseError(res: Response): Promise<string> {
   try {
     const data = (await res.json()) as ApiError
+    if (res.status === 429) {
+      return data.error ?? 'Demasiados intentos. Esperá un minuto e intentá de nuevo.'
+    }
     return data.error ?? data.detail ?? data.title ?? res.statusText
   } catch {
+    if (res.status === 429) {
+      return 'Demasiados intentos. Esperá un minuto e intentá de nuevo.'
+    }
     return res.statusText || 'Error de API'
   }
 }
@@ -56,7 +62,7 @@ async function tryRefresh(): Promise<boolean> {
 
 // Endpoints de autenticación: un 401 acá es un error real de credenciales,
 // no una sesión vencida, así que no debe dispararse el flujo de refresh.
-const AUTH_PATHS = ['/api/auth/login', '/api/auth/refresh']
+const AUTH_PATHS = ['/api/auth/login', '/api/auth/refresh', '/api/auth/logout']
 
 export async function apiFetch<T>(
   path: string,

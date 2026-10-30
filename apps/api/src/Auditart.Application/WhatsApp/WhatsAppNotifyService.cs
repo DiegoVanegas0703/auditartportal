@@ -39,7 +39,9 @@ public sealed class WhatsAppNotifyService
 
         var patientPhone = PhoneNormalizer.ToE164Argentina(
             service.PacienteEntity?.Telefono ?? service.TelefonoPaciente);
-        var body = WhatsAppTurnoMessage.Build(service, notifier, out var contactLink);
+        var kind = WhatsAppTurnoMessage.KindFor(service);
+        var template = await GetTemplateBodyAsync(kind, ct);
+        var body = WhatsAppTurnoMessage.Build(service, notifier, template, out var contactLink);
 
         var canSend = true;
         string? block = null;
@@ -77,15 +79,20 @@ public sealed class WhatsAppNotifyService
             service.PacienteEntity?.Nombre ?? service.Paciente,
             string.IsNullOrWhiteSpace(service.Especialidad)
                 ? service.TipoServicio.ToString()
-                : service.Especialidad!);
+                : service.Especialidad!,
+            kind,
+            template);
     }
 
     public async Task<WhatsAppNotifyResult> NotifyTurnoAsync(
         Guid serviceId,
         Guid notifierUserId,
+        string? customBody = null,
         CancellationToken ct = default)
     {
         var preview = await PreviewTurnoAsync(serviceId, notifierUserId, ct);
+        if (!string.IsNullOrWhiteSpace(customBody))
+            preview = preview with { MessageBody = customBody.Trim() };
         if (!preview.CanSend)
             return WhatsAppNotifyResult.Fail(preview.BlockReason ?? "No se puede enviar.");
 
@@ -134,7 +141,7 @@ public sealed class WhatsAppNotifyService
         if (status != AuditStatus.Amarillo) return;
         try
         {
-            var result = await NotifyTurnoAsync(serviceId, notifierUserId, ct);
+            var result = await NotifyTurnoAsync(serviceId, notifierUserId, null, ct);
             if (!result.Success)
                 _logger.LogWarning("WhatsApp turno auto-notify falló para {ServiceId}: {Error}", serviceId, result.Error);
         }
@@ -152,6 +159,59 @@ public sealed class WhatsAppNotifyService
             .FirstOrDefaultAsync(s => s.Id == serviceId, ct)
             ?? throw new KeyNotFoundException("Prestación no encontrada.");
     }
+
+    public async Task<IReadOnlyList<WhatsAppTemplateDto>> ListTemplatesAsync(CancellationToken ct)
+    {
+        var stored = await _db.WhatsAppTemplates.AsNoTracking().ToListAsync(ct);
+        return new[] { WhatsAppTurnoMessage.KindTurno, WhatsAppTurnoMessage.KindTelemedicina }
+            .Select(key =>
+            {
+                var body = stored.FirstOrDefault(t => t.Key == key)?.Body
+                    ?? WhatsAppTurnoMessage.DefaultFor(key);
+                return new WhatsAppTemplateDto(key, TitleFor(key), body, WhatsAppTurnoMessage.DefaultFor(key));
+            })
+            .ToList();
+    }
+
+    public async Task<WhatsAppTemplateDto> SaveTemplateAsync(string key, string body, CancellationToken ct)
+    {
+        key = NormalizeKey(key);
+        var entity = await _db.WhatsAppTemplates.FirstOrDefaultAsync(t => t.Key == key, ct);
+        if (entity is null)
+        {
+            entity = WhatsAppTemplate.Create(key, body);
+            _db.Add(entity);
+        }
+        else
+        {
+            entity.SetBody(body);
+        }
+
+        await _db.SaveChangesAsync(ct);
+        return new WhatsAppTemplateDto(key, TitleFor(key), entity.Body, WhatsAppTurnoMessage.DefaultFor(key));
+    }
+
+    private async Task<string> GetTemplateBodyAsync(string kind, CancellationToken ct)
+    {
+        var stored = await _db.WhatsAppTemplates.AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Key == kind, ct);
+        return string.IsNullOrWhiteSpace(stored?.Body)
+            ? WhatsAppTurnoMessage.DefaultFor(kind)
+            : stored.Body;
+    }
+
+    private static string NormalizeKey(string key)
+    {
+        var k = (key ?? string.Empty).Trim().ToLowerInvariant();
+        if (k is not (WhatsAppTurnoMessage.KindTurno or WhatsAppTurnoMessage.KindTelemedicina))
+            throw new ArgumentException("Plantilla inválida. Usá turno o telemedicina.");
+        return k;
+    }
+
+    private static string TitleFor(string key) =>
+        WhatsAppTurnoMessage.IsTelemedicina(key)
+            ? "Telemedicina"
+            : "Turno presencial";
 }
 
 public sealed record WhatsAppTurnoPreviewDto(
@@ -165,7 +225,11 @@ public sealed record WhatsAppTurnoPreviewDto(
     string? Direccion,
     string? Medico,
     string PacienteNombre,
-    string Motivo);
+    string Motivo,
+    string Kind,
+    string TemplateBody);
+
+public sealed record WhatsAppTemplateDto(string Key, string Title, string Body, string DefaultBody);
 
 public sealed record WhatsAppNotifyResult(bool Success, Guid? LogId, string? Phone, string? Error)
 {

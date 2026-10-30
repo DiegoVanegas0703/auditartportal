@@ -467,3 +467,15 @@ public class GmailSyncStateConfiguration : IEntityTypeConfiguration<GmailSyncSta
         builder.HasIndex(x => x.Mailbox).IsUnique();
     }
 }
+
+public class WhatsAppTemplateConfiguration : IEntityTypeConfiguration<WhatsAppTemplate>
+{
+    public void Configure(EntityTypeBuilder<WhatsAppTemplate> builder)
+    {
+        builder.ToTable("whatsapp_templates");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Key).HasMaxLength(40).IsRequired();
+        builder.Property(x => x.Body).HasColumnType("text").IsRequired();
+        builder.HasIndex(x => x.Key).IsUnique();
+    }
+}

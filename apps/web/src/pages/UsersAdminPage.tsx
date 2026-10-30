@@ -9,6 +9,7 @@ export function UsersAdminPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [createdPassword, setCreatedPassword] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<UserRole>('operador')
@@ -36,7 +37,7 @@ export function UsersAdminPage() {
     setBusy(true)
     setError(null)
     try {
-      await usersApi.create({
+      const created = await usersApi.create({
         name: name.trim(),
         email: email.trim(),
         role,
@@ -44,6 +45,7 @@ export function UsersAdminPage() {
       })
       setName('')
       setEmail('')
+      setCreatedPassword(created.temporaryPassword ?? null)
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo crear el usuario')
@@ -128,8 +130,15 @@ export function UsersAdminPage() {
               {busy ? <Loader2 size={14} className="animate-spin" /> : 'Crear con contraseña temporal'}
             </button>
             <p className="text-xs text-auditart-muted">
-              Se genera contraseña temporal y cambio obligatorio al primer ingreso.
+              Se genera una contraseña temporal (10+ caracteres) y el cambio es obligatorio al
+              primer ingreso.
             </p>
+            {createdPassword && (
+              <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                Contraseña temporal (mostrala una sola vez):{' '}
+                <span className="font-mono font-semibold">{createdPassword}</span>
+              </p>
+            )}
           </form>
         </div>
 

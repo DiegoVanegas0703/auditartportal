@@ -23,7 +23,7 @@ export function ArtsPage() {
     try {
       setArts(await artsApi.list(true))
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudieron cargar las ARTs')
+      setError(e instanceof Error ? e.message : 'No se pudieron cargar los clientes')
     } finally {
       setLoading(false)
     }
@@ -66,10 +66,10 @@ export function ArtsPage() {
       setEditingId(null)
       await load()
       void loadArts(true)
-      setToast('ART guardada')
+      setToast('Cliente guardado')
       setTimeout(() => setToast(''), 3000)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo guardar la ART')
+      setError(e instanceof Error ? e.message : 'No se pudo guardar el cliente')
     } finally {
       setBusy(false)
     }
@@ -132,8 +132,8 @@ export function ArtsPage() {
   return (
     <div className="animate-fade-in">
       <PageHeader
-        title="ARTs"
-        subtitle="Catálogo de aseguradoras · se usa en todos los desplegables de ART"
+        title="Clientes"
+        subtitle="Catálogo de clientes (ART / aseguradoras) · se usa en todos los desplegables"
         action={
           <button
             type="button"
@@ -142,7 +142,7 @@ export function ArtsPage() {
             className="btn-primary flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50"
           >
             <Plus size={16} />
-            Nueva ART
+            Nuevo cliente
           </button>
         }
       />
@@ -161,7 +161,7 @@ export function ArtsPage() {
             placeholder="Buscar por nombre o CUIT…"
             className="w-full bg-transparent text-sm outline-none"
           />
-          <span className="shrink-0 text-xs text-auditart-muted">{filtered.length} ART(s)</span>
+          <span className="shrink-0 text-xs text-auditart-muted">{filtered.length} cliente(s)</span>
         </div>
         {loading ? (
           <div className="flex items-center gap-2 p-4 text-sm text-auditart-gray">

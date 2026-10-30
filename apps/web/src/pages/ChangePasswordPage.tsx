@@ -2,6 +2,7 @@ import { CheckCircle2, Loader2, Lock } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authApi } from '../api/auditartApi'
+import { PASSWORD_MIN_LENGTH, PASSWORD_REQUIREMENTS, passwordPolicyError } from '../auth/passwordPolicy'
 import { Logo } from '../components/ui/Logo'
 import { useAuth } from '../context/useAuth'
 
@@ -21,8 +22,9 @@ export function ChangePasswordPage() {
       setError('Las contraseñas nuevas no coinciden.')
       return
     }
-    if (newPassword.length < 4) {
-      setError('La contraseña debe tener al menos 4 caracteres.')
+    const policyError = passwordPolicyError(newPassword)
+    if (policyError) {
+      setError(policyError)
       return
     }
 
@@ -52,7 +54,8 @@ export function ChangePasswordPage() {
           </div>
           <h1 className="text-2xl font-bold text-auditart-navy">Cambiar contraseña</h1>
           <p className="mt-2 text-sm text-auditart-gray">
-            {user?.name}, debés establecer una nueva contraseña antes de continuar.
+            {user?.name}, debés establecer una nueva contraseña antes de continuar.{' '}
+            {PASSWORD_REQUIREMENTS}
           </p>
         </div>
 
@@ -88,7 +91,7 @@ export function ChangePasswordPage() {
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               required
-              minLength={4}
+              minLength={PASSWORD_MIN_LENGTH}
               className="input-modern w-full px-4 py-2.5 text-sm"
             />
           </label>
@@ -101,7 +104,7 @@ export function ChangePasswordPage() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
-              minLength={4}
+              minLength={PASSWORD_MIN_LENGTH}
               className="input-modern w-full px-4 py-2.5 text-sm"
             />
           </label>

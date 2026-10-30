@@ -16,6 +16,8 @@ import { authApi, mapAuthUser, type AuthUserDto } from '../api/auditartApi'
 
 import { clearTokens, getAccessToken, getRefreshToken } from '../api/client'
 
+import { useIdleSession } from '../hooks/useIdleSession'
+
 import type { Permission, User } from '../types'
 
 import { AuthContext, type AuthContextValue } from './auth-context'
@@ -135,6 +137,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
 
   }, [])
+
+  useIdleSession(!!user, () => {
+    void logout()
+  })
 
 
 

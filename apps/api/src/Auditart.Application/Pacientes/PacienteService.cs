@@ -215,19 +215,21 @@ public sealed class PacienteService
     }
 
     private static PacienteDto Map(Paciente p, IReadOnlyList<PacientePrestacionDto> prestaciones) =>
-        new(
-            p.Id,
-            p.Nombre,
-            p.Dni,
-            p.Telefono,
-            p.Email,
-            p.Art,
-            p.NumeroSiniestro,
-            prestaciones.Count(x => x.Status != AuditStatus.Celeste),
-            prestaciones,
-            p.Domicilio,
-            p.Localidad,
-            p.Provincia);
+        new()
+        {
+            Id = p.Id,
+            Nombre = p.Nombre,
+            Dni = p.Dni,
+            Telefono = p.Telefono,
+            Email = p.Email,
+            Art = p.Art,
+            NumeroSiniestro = p.NumeroSiniestro,
+            Domicilio = p.Domicilio,
+            Localidad = p.Localidad,
+            Provincia = p.Provincia,
+            PrestacionesAbiertas = prestaciones.Count(x => x.Status != AuditStatus.Celeste),
+            Prestaciones = prestaciones,
+        };
 
     /// <summary>Pacientes con ese DNI (para autocompletar formularios).</summary>
     public async Task<IReadOnlyList<PacienteLookupDto>> FindByDniAsync(string dni, CancellationToken ct)
@@ -239,38 +241,52 @@ public sealed class PacienteService
             .Where(p => p.DniNormalizado == dniNorm)
             .OrderByDescending(p => p.UpdatedAtUtc)
             .Take(5)
-            .Select(p => new PacienteLookupDto(
-                p.Id, p.Nombre, p.Dni, p.Telefono, p.Email, p.Art, p.NumeroSiniestro,
-                p.Domicilio, p.Localidad, p.Provincia))
+            .Select(p => new PacienteLookupDto
+            {
+                Id = p.Id,
+                Nombre = p.Nombre,
+                Dni = p.Dni,
+                Telefono = p.Telefono,
+                Email = p.Email,
+                Art = p.Art,
+                NumeroSiniestro = p.NumeroSiniestro,
+                Domicilio = p.Domicilio,
+                Localidad = p.Localidad,
+                Provincia = p.Provincia,
+            })
             .ToListAsync(ct);
     }
 }
 
-public sealed record PacienteDto(
-    Guid Id,
-    string Nombre,
-    string? Dni,
-    string? Telefono,
-    string? Email,
-    string? Art,
-    string? NumeroSiniestro,
-    int PrestacionesAbiertas,
-    IReadOnlyList<PacientePrestacionDto> Prestaciones,
-    string? Domicilio = null,
-    string? Localidad = null,
-    string? Provincia = null);
+public sealed class PacienteDto
+{
+    public Guid Id { get; init; }
+    public string Nombre { get; init; } = string.Empty;
+    public string? Dni { get; init; }
+    public string? Telefono { get; init; }
+    public string? Email { get; init; }
+    public string? Art { get; init; }
+    public string? NumeroSiniestro { get; init; }
+    public string? Domicilio { get; init; }
+    public string? Localidad { get; init; }
+    public string? Provincia { get; init; }
+    public int PrestacionesAbiertas { get; init; }
+    public IReadOnlyList<PacientePrestacionDto> Prestaciones { get; init; } = [];
+}
 
-public sealed record PacienteLookupDto(
-    Guid Id,
-    string Nombre,
-    string? Dni,
-    string? Telefono,
-    string? Email,
-    string? Art,
-    string? NumeroSiniestro,
-    string? Domicilio,
-    string? Localidad = null,
-    string? Provincia = null);
+public sealed class PacienteLookupDto
+{
+    public Guid Id { get; init; }
+    public string Nombre { get; init; } = string.Empty;
+    public string? Dni { get; init; }
+    public string? Telefono { get; init; }
+    public string? Email { get; init; }
+    public string? Art { get; init; }
+    public string? NumeroSiniestro { get; init; }
+    public string? Domicilio { get; init; }
+    public string? Localidad { get; init; }
+    public string? Provincia { get; init; }
+}
 
 public sealed record PacientePrestacionDto(
     Guid Id,
@@ -299,13 +315,15 @@ public sealed record CreatePrestacionRequest(
 
 public sealed record CreatePacienteResult(bool Created, PacienteDto Paciente);
 
-public sealed record UpdatePacienteRequest(
-    string Nombre,
-    string? Dni,
-    string? Telefono,
-    string? Email,
-    string? Art,
-    string? NumeroSiniestro,
-    string? Domicilio = null,
-    string? Localidad = null,
-    string? Provincia = null);
+public sealed class UpdatePacienteRequest
+{
+    public string Nombre { get; set; } = string.Empty;
+    public string? Dni { get; set; }
+    public string? Telefono { get; set; }
+    public string? Email { get; set; }
+    public string? Art { get; set; }
+    public string? NumeroSiniestro { get; set; }
+    public string? Domicilio { get; set; }
+    public string? Localidad { get; set; }
+    public string? Provincia { get; set; }
+}

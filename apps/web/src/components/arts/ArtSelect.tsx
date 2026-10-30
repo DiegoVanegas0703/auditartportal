@@ -160,7 +160,7 @@ export function ArtSelect({
           <ul role="listbox" className="max-h-60 overflow-y-auto py-1">
             {filtered.length === 0 && (
               <li className="px-3 py-2 text-xs text-auditart-muted">
-                {arts.length === 0 ? 'No hay ARTs cargadas (módulo ARTs).' : 'Sin resultados.'}
+                {arts.length === 0 ? 'No hay clientes cargados (módulo Clientes).' : 'Sin resultados.'}
               </li>
             )}
             {filtered.map((art, index) => {

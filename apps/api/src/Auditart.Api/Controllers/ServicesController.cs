@@ -238,6 +238,7 @@ public class ServicesController : ControllerBase
             .Include(x => x.Operador)
             .FirstOrDefaultAsync(x => x.Id == id, ct);
         if (s is null) return NotFound();
+        if (!CanAccessService(s)) return NotFound();
         return Ok(MapService(s));
     }
 
@@ -250,8 +251,8 @@ public class ServicesController : ControllerBase
             role is not (UserRole.Admin or UserRole.Jefatura))
             return Forbid();
 
-        var exists = await _db.AuditServices.AnyAsync(s => s.Id == id, ct);
-        if (!exists) return NotFound();
+        var service = await _db.AuditServices.FirstOrDefaultAsync(s => s.Id == id, ct);
+        if (service is null || !CanAccessService(service)) return NotFound();
 
         var detail = await _conversations.GetByServiceAsync(id, ct);
         return detail is null ? NotFound(new { error = "Sin conversación vinculada." }) : Ok(detail);
@@ -456,12 +457,17 @@ public class ServicesController : ControllerBase
                         request.FechaTurnoUtc.Value,
                         string.IsNullOrWhiteSpace(request.Profesional) ? prestador.Nombre : request.Profesional,
                         prestador.Id,
-                        prestador.ValorConsulta,
-                        prestador.RequierePagoAnticipado);
+                        request.ValorConsulta ?? prestador.ValorConsulta,
+                        prestador.RequierePagoAnticipado,
+                        request.ValorConciliadoArt);
                 }
                 else
                 {
-                    service.SetTurno(request.FechaTurnoUtc.Value, request.Profesional);
+                    service.SetTurno(
+                        request.FechaTurnoUtc.Value,
+                        request.Profesional,
+                        valorConsulta: request.ValorConsulta,
+                        valorConciliadoArt: request.ValorConciliadoArt);
                 }
             }
 
@@ -1030,6 +1036,9 @@ public class ServicesController : ControllerBase
         s.NeedsOperadorAssignment
     };
 
+    private bool CanAccessService(AuditService service) =>
+        PermissionService.CanViewService(GetRole(), GetUserId(), service.Queue, service.Status, service.OperadorId);
+
     private UserRole GetRole()
     {
         var role = User.FindFirstValue(ClaimTypes.Role) ?? User.FindFirstValue("role");
@@ -1047,7 +1056,9 @@ public sealed record TransitionRequest(
     Guid? PrestadorId,
     string? Reason,
     string? AutorizacionCodigo = null,
-    Guid? AutorizacionDocumentoAttachmentId = null);
+    Guid? AutorizacionDocumentoAttachmentId = null,
+    decimal? ValorConsulta = null,
+    decimal? ValorConciliadoArt = null);
 
 public sealed record SetAutorizacionRequest(
     string? AutorizacionCodigo,

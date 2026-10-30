@@ -97,9 +97,13 @@ public class Paciente : Entity
         string? localidad,
         string? provincia)
     {
-        Domicilio = string.IsNullOrWhiteSpace(domicilio) ? null : domicilio.Trim();
-        Localidad = string.IsNullOrWhiteSpace(localidad) ? null : localidad.Trim();
-        Provincia = string.IsNullOrWhiteSpace(provincia) ? null : provincia.Trim();
+        // null = no vino en el request (no pisar). "" = borrar. Valor = reemplazar.
+        if (domicilio is not null)
+            Domicilio = string.IsNullOrWhiteSpace(domicilio) ? null : domicilio.Trim();
+        if (localidad is not null)
+            Localidad = string.IsNullOrWhiteSpace(localidad) ? null : localidad.Trim();
+        if (provincia is not null)
+            Provincia = string.IsNullOrWhiteSpace(provincia) ? null : provincia.Trim();
         Nombre = (nombre ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(Nombre))
             Nombre = "Sin identificar";

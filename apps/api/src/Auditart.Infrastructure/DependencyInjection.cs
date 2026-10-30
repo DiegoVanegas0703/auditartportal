@@ -1,3 +1,5 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using System.Text;
 using Auditart.Application.Abstractions;
 using Auditart.Application.Auth;
@@ -43,6 +45,8 @@ public static class DependencyInjection
         services.AddScoped<GmailIngestionService>();
         services.AddScoped<EmailConversationService>();
         services.AddScoped<EmailOutboxProcessor>();
+        services.AddSingleton<IPdfFormReader, PdfFormReader>();
+        services.AddHttpClient(nameof(DenunciaPdfParser));
         services.AddScoped<DenunciaPdfParser>();
         services.AddScoped<UserAdminService>();
         services.AddScoped<PrestadorService>();
@@ -58,6 +62,9 @@ public static class DependencyInjection
         services.AddHostedService<ChronicRenewalWorker>();
         services.Configure<SlaAlertOptions>(configuration.GetSection(SlaAlertOptions.SectionName));
         services.AddHostedService<SlaAlertWorker>();
+        services.AddMemoryCache();
+        services.AddSingleton<ILoginLockoutService, LoginLockoutService>();
+        services.AddScoped<ActiveUserGuard>();
         services.AddScoped<AuthService>();
         services.AddSingleton<IAcroFormFiller, AcroFormFiller>();
         services.AddScoped<FormularioPdfService>();
@@ -86,6 +93,23 @@ public static class DependencyInjection
                     ValidAudience = configuration["Jwt:Audience"] ?? "auditart-web",
                     IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
                     ClockSkew = TimeSpan.FromMinutes(1)
+                };
+                options.Events = new JwtBearerEvents
+                {
+                    OnTokenValidated = async ctx =>
+                    {
+                        var sub = ctx.Principal?.FindFirstValue(JwtRegisteredClaimNames.Sub)
+                            ?? ctx.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+                        if (!Guid.TryParse(sub, out var userId))
+                        {
+                            ctx.Fail("Token sin usuario.");
+                            return;
+                        }
+
+                        var guard = ctx.HttpContext.RequestServices.GetRequiredService<ActiveUserGuard>();
+                        if (!await guard.IsActiveAsync(userId, ctx.HttpContext.RequestAborted))
+                            ctx.Fail("Usuario inactivo.");
+                    }
                 };
             });
 

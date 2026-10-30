@@ -24,6 +24,7 @@ public interface IAppDbContext
     IQueryable<GmailSyncState> GmailSyncStates { get; }
     IQueryable<Aseguradora> Aseguradoras { get; }
     IQueryable<WhatsAppOutboundLog> WhatsAppOutboundLogs { get; }
+    IQueryable<WhatsAppTemplate> WhatsAppTemplates { get; }
     IQueryable<AiAssistant> AiAssistants { get; }
 
     void Add<T>(T entity) where T : class;
@@ -34,6 +35,7 @@ public interface IAppDbContext
 
 public interface IJwtTokenService
 {
+    int AccessTokenMinutes { get; }
     string CreateAccessToken(User user);
     (string RawToken, string TokenHash, DateTime ExpiresAtUtc) CreateRefreshToken();
     string HashToken(string rawToken);

@@ -3,6 +3,7 @@ using Auditart.Application.Abstractions;
 using Auditart.Application.Auth;
 using Auditart.Application.Users;
 using Auditart.Domain.Enums;
+using Auditart.Infrastructure.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -16,11 +17,13 @@ public class UsersController : ControllerBase
 {
     private readonly IAppDbContext _db;
     private readonly UserAdminService _admin;
+    private readonly ActiveUserGuard _activeUsers;
 
-    public UsersController(IAppDbContext db, UserAdminService admin)
+    public UsersController(IAppDbContext db, UserAdminService admin, ActiveUserGuard activeUsers)
     {
         _db = db;
         _admin = admin;
+        _activeUsers = activeUsers;
     }
 
     [HttpGet]
@@ -76,6 +79,7 @@ public class UsersController : ControllerBase
         try
         {
             await _admin.DeactivateUserAsync(id, ct);
+            _activeUsers.Invalidate(id);
             return NoContent();
         }
         catch (KeyNotFoundException)

@@ -3,6 +3,7 @@ using Auditart.Application.Abstractions;
 using Auditart.Application.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace Auditart.Api.Controllers;
@@ -20,14 +21,19 @@ public class AuthController : ControllerBase
 
     [HttpPost("login")]
     [AllowAnonymous]
+    [EnableRateLimiting("auth")]
     public async Task<ActionResult<AuthTokensDto>> Login(
         [FromBody] LoginRequest request,
         CancellationToken ct)
     {
         try
         {
-            var tokens = await _auth.LoginAsync(request.Email, request.Password, ct);
+            var tokens = await _auth.LoginAsync(request.Email, request.Password, ClientKey(), ct);
             return Ok(tokens);
+        }
+        catch (LoginThrottledException ex)
+        {
+            return StatusCode(StatusCodes.Status429TooManyRequests, new { error = ex.Message });
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -113,6 +119,7 @@ public class AuthController : ControllerBase
 
     [HttpPost("refresh")]
     [AllowAnonymous]
+    [EnableRateLimiting("auth")]
     public async Task<ActionResult<AuthTokensDto>> Refresh(
         [FromBody] RefreshRequest request,
         CancellationToken ct)
@@ -129,10 +136,10 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("logout")]
-    [Authorize]
-    public async Task<IActionResult> Logout([FromBody] RefreshRequest request, CancellationToken ct)
+    [AllowAnonymous]
+    public async Task<IActionResult> Logout([FromBody] RefreshRequest? request, CancellationToken ct)
     {
-        await _auth.RevokeRefreshAsync(request.RefreshToken, ct);
+        await _auth.RevokeRefreshAsync(request?.RefreshToken ?? string.Empty, ct);
         return NoContent();
     }
 
@@ -151,7 +158,10 @@ public class AuthController : ControllerBase
         var user = await EntityFrameworkQueryableExtensions
             .FirstOrDefaultAsync(db.Users, u => u.Id == userId, ct);
 
-        if (user is null) return Unauthorized();
+        if (user is null || !user.IsActive) return Unauthorized();
         return Ok(AuthService.MapUser(user));
     }
+
+    private string ClientKey() =>
+        HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 }

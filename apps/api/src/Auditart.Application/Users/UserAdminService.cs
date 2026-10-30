@@ -13,7 +13,8 @@ public sealed record UserListItemDto(
     UserRole Role,
     AuditQueue? DefaultQueue,
     bool IsActive,
-    bool MustChangePassword);
+    bool MustChangePassword,
+    string? TemporaryPassword = null);
 
 public sealed record CreateUserRequest(
     string Name,
@@ -32,11 +33,13 @@ public sealed class UserAdminService
 {
     private readonly IAppDbContext _db;
     private readonly IPasswordHasher _hasher;
+    private readonly AuthService _auth;
 
-    public UserAdminService(IAppDbContext db, IPasswordHasher hasher)
+    public UserAdminService(IAppDbContext db, IPasswordHasher hasher, AuthService auth)
     {
         _db = db;
         _hasher = hasher;
+        _auth = auth;
     }
 
     public async Task<IReadOnlyList<UserListItemDto>> ListAllAsync(CancellationToken ct = default)
@@ -50,7 +53,8 @@ public sealed class UserAdminService
                 u.Role,
                 u.DefaultQueue,
                 u.IsActive,
-                u.MustChangePassword))
+                u.MustChangePassword,
+                null))
             .ToListAsync(ct);
     }
 
@@ -61,8 +65,9 @@ public sealed class UserAdminService
             throw new InvalidOperationException($"Ya existe un usuario con el email {email}.");
 
         var tempPassword = string.IsNullOrWhiteSpace(request.TempPassword)
-            ? Guid.NewGuid().ToString("N")[..12]
+            ? PasswordPolicy.GenerateTemporary()
             : request.TempPassword.Trim();
+        PasswordPolicy.EnsureValid(tempPassword);
 
         var user = User.Create(request.Name, email, request.Role, request.DefaultQueue);
         user.SetPassword(_hasher.Hash(tempPassword), mustChangePassword: true);
@@ -76,7 +81,8 @@ public sealed class UserAdminService
             user.Role,
             user.DefaultQueue,
             user.IsActive,
-            user.MustChangePassword);
+            user.MustChangePassword,
+            tempPassword);
     }
 
     public async Task<UserListItemDto> UpdateUserAsync(
@@ -110,5 +116,6 @@ public sealed class UserAdminService
             ?? throw new KeyNotFoundException("Usuario no encontrado.");
         user.Deactivate();
         await _db.SaveChangesAsync(ct);
+        await _auth.RevokeAllRefreshTokensAsync(userId, ct);
     }
 }

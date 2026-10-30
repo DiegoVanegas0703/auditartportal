@@ -55,6 +55,8 @@ export interface AuditContextValue {
       prestadorId?: string
       autorizacionCodigo?: string
       autorizacionDocumentoAttachmentId?: string
+      valorConsulta?: number
+      valorConciliadoArt?: number
     },
   ) => Promise<void>
   updateAudit: (auditId: string, updates: Partial<AuditRecord>) => Promise<void>

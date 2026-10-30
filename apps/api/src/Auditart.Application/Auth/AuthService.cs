@@ -10,31 +10,48 @@ public class AuthService
     private readonly IAppDbContext _db;
     private readonly IPasswordHasher _hasher;
     private readonly IJwtTokenService _jwt;
+    private readonly ILoginLockoutService _lockout;
 
-    public AuthService(IAppDbContext db, IPasswordHasher hasher, IJwtTokenService jwt)
+    public AuthService(
+        IAppDbContext db,
+        IPasswordHasher hasher,
+        IJwtTokenService jwt,
+        ILoginLockoutService lockout)
     {
         _db = db;
         _hasher = hasher;
         _jwt = jwt;
+        _lockout = lockout;
     }
 
-    public async Task<AuthTokensDto> LoginAsync(string email, string password, CancellationToken ct = default)
+    public async Task<AuthTokensDto> LoginAsync(
+        string email,
+        string password,
+        string? clientKey = null,
+        CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
             throw new UnauthorizedAccessException("Email y contraseña son obligatorios.");
 
         var normalizedEmail = email.Trim().ToLowerInvariant();
+        if (_lockout.IsLocked(normalizedEmail, clientKey, out var lockMessage))
+            throw new LoginThrottledException(lockMessage ?? "Demasiados intentos fallidos.");
+
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == normalizedEmail, ct);
 
-        if (user is null || string.IsNullOrEmpty(user.PasswordHash))
+        if (user is null || string.IsNullOrEmpty(user.PasswordHash) || !user.IsActive)
+        {
+            _lockout.RegisterFailure(normalizedEmail, clientKey);
             throw new UnauthorizedAccessException("Credenciales inválidas.");
-
-        if (!user.IsActive)
-            throw new UnauthorizedAccessException("Usuario inactivo.");
+        }
 
         if (!_hasher.Verify(password, user.PasswordHash))
+        {
+            _lockout.RegisterFailure(normalizedEmail, clientKey);
             throw new UnauthorizedAccessException("Credenciales inválidas.");
+        }
 
+        _lockout.RegisterSuccess(normalizedEmail, clientKey);
         user.RecordLogin();
         return await IssueTokensAsync(user, ct);
     }
@@ -45,8 +62,7 @@ public class AuthService
         string newPassword,
         CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 4)
-            throw new InvalidOperationException("La nueva contraseña debe tener al menos 4 caracteres.");
+        PasswordPolicy.EnsureValid(newPassword);
 
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct)
             ?? throw new UnauthorizedAccessException("Usuario no encontrado.");
@@ -79,17 +95,29 @@ public class AuthService
         return new AuthTokensDto(
             access,
             newRaw,
-            DateTime.UtcNow.AddMinutes(30),
+            DateTime.UtcNow.AddMinutes(_jwt.AccessTokenMinutes),
             MapUser(existing.User));
     }
 
     public async Task RevokeRefreshAsync(string rawRefreshToken, CancellationToken ct = default)
     {
+        if (string.IsNullOrWhiteSpace(rawRefreshToken)) return;
         var hash = _jwt.HashToken(rawRefreshToken);
         var existing = await _db.RefreshTokens.FirstOrDefaultAsync(t => t.TokenHash == hash, ct);
         if (existing is null) return;
         existing.Revoke();
         await _db.SaveChangesAsync(ct);
+    }
+
+    public async Task RevokeAllRefreshTokensAsync(Guid userId, CancellationToken ct = default)
+    {
+        var tokens = await _db.RefreshTokens
+            .Where(t => t.UserId == userId && t.RevokedAtUtc == null)
+            .ToListAsync(ct);
+        foreach (var token in tokens)
+            token.Revoke();
+        if (tokens.Count > 0)
+            await _db.SaveChangesAsync(ct);
     }
 
     private async Task<AuthTokensDto> IssueTokensAsync(User user, CancellationToken ct)
@@ -102,7 +130,7 @@ public class AuthService
         return new AuthTokensDto(
             access,
             raw,
-            DateTime.UtcNow.AddMinutes(30),
+            DateTime.UtcNow.AddMinutes(_jwt.AccessTokenMinutes),
             MapUser(user));
     }
 

@@ -1383,6 +1383,34 @@ namespace Auditart.Infrastructure.Persistence.Migrations
                     b.ToTable("whatsapp_outbound_logs", (string)null);
                 });
 
+            modelBuilder.Entity("Auditart.Domain.Entities.WhatsAppTemplate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Key")
+                        .IsUnique();
+
+                    b.ToTable("whatsapp_templates", (string)null);
+                });
+
             modelBuilder.Entity("Auditart.Domain.Entities.AuditService", b =>
                 {
                     b.HasOne("Auditart.Domain.Entities.EmailRequest", "EmailRequest")

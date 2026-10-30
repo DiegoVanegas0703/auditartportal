@@ -254,6 +254,8 @@ export function AuditProvider({ children }: { children: ReactNode }) {
         prestadorId?: string
         autorizacionCodigo?: string
         autorizacionDocumentoAttachmentId?: string
+        valorConsulta?: number
+        valorConciliadoArt?: number
       },
     ) => {
 

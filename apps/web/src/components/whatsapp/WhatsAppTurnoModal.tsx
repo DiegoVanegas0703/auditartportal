@@ -1,6 +1,11 @@
-import { ExternalLink, Loader2, MessageCircle, X } from 'lucide-react'
+import { ExternalLink, Loader2, MessageCircle, Save, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { whatsappApi, type WhatsAppTurnoPreview } from '../../api/auditartApi'
+import {
+  whatsappApi,
+  type WhatsAppTemplateDto,
+  type WhatsAppTurnoPreview,
+} from '../../api/auditartApi'
+import { useAuth } from '../../context/useAuth'
 
 export function WhatsAppTurnoModal({
   serviceId,
@@ -11,19 +16,31 @@ export function WhatsAppTurnoModal({
   onClose: () => void
   onSent: (phone: string) => void
 }) {
+  const { user } = useAuth()
+  const canEditTemplates = user?.role === 'admin' || user?.role === 'jefatura'
   const [preview, setPreview] = useState<WhatsAppTurnoPreview | null>(null)
+  const [message, setMessage] = useState('')
+  const [templates, setTemplates] = useState<WhatsAppTemplateDto[]>([])
+  const [showTemplates, setShowTemplates] = useState(false)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
+  const [savingKey, setSavingKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [toast, setToast] = useState('')
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
     setError(null)
-    void whatsappApi
-      .previewTurno(serviceId)
-      .then((p) => {
-        if (!cancelled) setPreview(p)
+    void Promise.all([
+      whatsappApi.previewTurno(serviceId),
+      canEditTemplates ? whatsappApi.listTemplates() : Promise.resolve([]),
+    ])
+      .then(([p, t]) => {
+        if (cancelled) return
+        setPreview(p)
+        setMessage(p.messageBody)
+        setTemplates(t)
       })
       .catch((e: unknown) => {
         if (!cancelled)
@@ -35,13 +52,13 @@ export function WhatsAppTurnoModal({
     return () => {
       cancelled = true
     }
-  }, [serviceId])
+  }, [serviceId, canEditTemplates])
 
   const send = async () => {
     setBusy(true)
     setError(null)
     try {
-      const r = await whatsappApi.notifyTurno(serviceId)
+      const r = await whatsappApi.notifyTurno(serviceId, message)
       onSent(r.phone)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo enviar el WhatsApp')
@@ -50,16 +67,35 @@ export function WhatsAppTurnoModal({
     }
   }
 
+  const saveTemplate = async (key: string, body: string) => {
+    setSavingKey(key)
+    setError(null)
+    try {
+      const saved = await whatsappApi.saveTemplate(key, body)
+      setTemplates((prev) => prev.map((t) => (t.key === saved.key ? saved : t)))
+      setToast(`Plantilla ${saved.title} guardada`)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo guardar la plantilla')
+    } finally {
+      setSavingKey(null)
+    }
+  }
+
+  const kindLabel =
+    preview?.kind === 'telemedicina' ? 'Telemedicina' : 'Turno presencial'
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
+      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <div className="flex items-center gap-2">
             <MessageCircle size={18} className="text-green-600" />
             <div>
               <h2 className="text-lg font-bold text-auditart-navy">Avisar turno por WhatsApp</h2>
               <p className="text-xs text-auditart-muted">
-                Vista previa del mensaje que recibirá el paciente
+                {preview
+                  ? `Plantilla: ${kindLabel}. Podés editar el texto antes de enviar.`
+                  : 'Vista previa del mensaje que recibirá el paciente'}
               </p>
             </div>
           </div>
@@ -80,6 +116,11 @@ export function WhatsAppTurnoModal({
           )}
           {error && (
             <div className="mb-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+          )}
+          {toast && (
+            <div className="mb-3 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+              {toast}
+            </div>
           )}
           {preview && !loading && (
             <>
@@ -108,13 +149,43 @@ export function WhatsAppTurnoModal({
                   {preview.blockReason}
                 </div>
               )}
-              <div className="rounded-2xl border border-green-100 bg-[#e7fce3] px-4 py-3 text-sm whitespace-pre-wrap text-auditart-navy shadow-inner">
-                {preview.messageBody}
-              </div>
-              <p className="mt-3 text-[11px] text-auditart-muted">
-                El mensaje aclara que no se responde en ese chat. El paciente puede tocar el link
-                wa.me para escribirte a tu WhatsApp.
+              <label className="block text-xs font-semibold text-auditart-gray">
+                Mensaje (editable)
+                <textarea
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  rows={14}
+                  className="mt-1 w-full rounded-2xl border border-green-100 bg-[#e7fce3] px-4 py-3 text-sm text-auditart-navy shadow-inner focus:border-green-400 focus:outline-none"
+                />
+              </label>
+              <p className="mt-2 text-[11px] text-auditart-muted">
+                En telemedicina solo se incluye el médico asignado (o el que coincida por
+                apellido). Placeholders de plantilla: {'{{medico}}'}, {'{{telefono_medico}}'},{' '}
+                {'{{doctor_line}}'}, {'{{paciente}}'}, {'{{fecha}}'}, {'{{direccion}}'}.
               </p>
+              {canEditTemplates && (
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowTemplates((v) => !v)}
+                    className="text-xs font-semibold text-auditart-blue hover:underline"
+                  >
+                    {showTemplates ? 'Ocultar plantillas' : 'Editar plantillas (turno y telemedicina)'}
+                  </button>
+                  {showTemplates && (
+                    <div className="mt-3 grid gap-4">
+                      {templates.map((t) => (
+                        <TemplateEditor
+                          key={t.key}
+                          template={t}
+                          saving={savingKey === t.key}
+                          onSave={(body) => void saveTemplate(t.key, body)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
         </div>
@@ -129,7 +200,7 @@ export function WhatsAppTurnoModal({
           </button>
           <button
             type="button"
-            disabled={!preview?.canSend || busy || loading}
+            disabled={!preview?.canSend || busy || loading || !message.trim()}
             onClick={() => void send()}
             className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
@@ -138,6 +209,44 @@ export function WhatsAppTurnoModal({
           </button>
         </div>
       </div>
+    </div>
+  )
+}
+
+function TemplateEditor({
+  template,
+  saving,
+  onSave,
+}: {
+  template: WhatsAppTemplateDto
+  saving: boolean
+  onSave: (body: string) => void
+}) {
+  const [body, setBody] = useState(template.body)
+  useEffect(() => {
+    setBody(template.body)
+  }, [template.body])
+
+  return (
+    <div className="rounded-2xl border border-gray-100 p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-sm font-bold text-auditart-navy">{template.title}</p>
+        <button
+          type="button"
+          disabled={saving || !body.trim()}
+          onClick={() => onSave(body)}
+          className="inline-flex items-center gap-1 rounded-lg bg-auditart-navy px-2.5 py-1 text-[11px] font-semibold text-white disabled:opacity-50"
+        >
+          {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+          Guardar plantilla
+        </button>
+      </div>
+      <textarea
+        value={body}
+        onChange={(e) => setBody(e.target.value)}
+        rows={8}
+        className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs text-auditart-navy focus:border-auditart-blue focus:outline-none"
+      />
     </div>
   )
 }

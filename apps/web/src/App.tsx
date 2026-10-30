@@ -18,7 +18,6 @@ import { PacientePage } from './pages/PacientePage'
 import { ReportsPage } from './pages/ReportsPage'
 import { SlaRulesPage } from './pages/SlaRulesPage'
 import { PrestadoresPage } from './pages/PrestadoresPage'
-import { PreciosPage } from './pages/PreciosPage'
 import { TriagePage } from './pages/TriagePage'
 import { UsersAdminPage } from './pages/UsersAdminPage'
 
@@ -112,14 +111,7 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="precios"
-          element={
-            <ProtectedRoute requiredPermission="precios">
-              <PreciosPage />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="precios" element={<Navigate to="/doctores" replace />} />
         <Route
           path="auditorias"
           element={
@@ -146,13 +138,14 @@ function AppRoutes() {
         />
         <Route path="mi-cuenta" element={<MiCuentaPage />} />
         <Route
-          path="arts"
+          path="clientes"
           element={
             <ProtectedRoute requiredPermission="triage">
               <ArtsPage />
             </ProtectedRoute>
           }
         />
+        <Route path="arts" element={<Navigate to="/clientes" replace />} />
         <Route
           path="asistente"
           element={

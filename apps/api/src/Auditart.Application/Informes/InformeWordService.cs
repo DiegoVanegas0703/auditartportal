@@ -123,6 +123,20 @@ public sealed class InformeWordService
             throw new InvalidOperationException(
                 "Completá el resumen (antecedentes / lo que indicó el médico).");
 
+        var gravLabel = (merged.GetValueOrDefault("gravedad") ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "leve" => "Leve",
+            "moderado" or "moderada" => "Moderado",
+            "grave" => "Grave",
+            _ => null
+        };
+        if (gravLabel is not null)
+        {
+            var ant = merged.GetValueOrDefault("antecedentes") ?? string.Empty;
+            if (!ant.Contains("Gravedad:", StringComparison.OrdinalIgnoreCase))
+                merged["antecedentes"] = $"Gravedad: {gravLabel}\n\n{ant}".Trim();
+        }
+
         var tokens = ToTokens(tipo, merged);
 
         byte[]? firmaBytes = null;
@@ -202,6 +216,7 @@ public sealed class InformeWordService
             ["caso"] = service.Numero.ToString(CultureInfo.InvariantCulture),
             ["antecedentes"] = string.Empty,
             ["conclusion"] = string.Empty,
+            ["gravedad"] = string.Empty,
             ["internado"] = "no",
             ["fechaAlta"] = string.Empty,
             ["institucion"] = string.Empty,
@@ -222,7 +237,12 @@ public sealed class InformeWordService
             ["CASO"] = merged.GetValueOrDefault("caso") ?? string.Empty,
             ["ANTECEDENTES"] = merged.GetValueOrDefault("antecedentes") ?? string.Empty,
             ["CONCLUSION"] = merged.GetValueOrDefault("conclusion") ?? string.Empty,
+            ["GRAVEDAD"] = merged.GetValueOrDefault("gravedad") ?? string.Empty,
         };
+        var grav = (merged.GetValueOrDefault("gravedad") ?? string.Empty).Trim().ToLowerInvariant();
+        tokens["GRAVEDAD_LEVE"] = grav == "leve" ? "X" : string.Empty;
+        tokens["GRAVEDAD_MODERADO"] = grav is "moderado" or "moderada" ? "X" : string.Empty;
+        tokens["GRAVEDAD_GRAVE"] = grav == "grave" ? "X" : string.Empty;
 
         if (tipo == InformeTipo.Terreno)
         {
@@ -268,6 +288,18 @@ public sealed class InformeWordService
         }
 
         common.Add(new("diagnostico", "Diagnóstico", "text", "diagnostico", 60, null));
+        common.Add(new(
+            "gravedad",
+            "Gravedad",
+            "select",
+            "gravedad",
+            65,
+            [
+                new InformeSelectOptionDto("", "—"),
+                new InformeSelectOptionDto("leve", "Leve"),
+                new InformeSelectOptionDto("moderado", "Moderado"),
+                new InformeSelectOptionDto("grave", "Grave"),
+            ]));
         common.Add(new("caso", "Caso", "text", "caso", 70, null));
         common.Add(new(
             "antecedentes",

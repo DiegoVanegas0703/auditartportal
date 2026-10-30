@@ -4,6 +4,7 @@ import { authApi } from '../api/auditartApi'
 import { EmailHtmlFrame } from '../components/email/EmailHtmlFrame'
 import { RichTextEditor } from '../components/email/RichTextEditor'
 import { PageHeader } from '../components/ui/PageHeader'
+import { PASSWORD_REQUIREMENTS, passwordPolicyError } from '../auth/passwordPolicy'
 import { useAuth } from '../context/useAuth'
 import { ROLE_LABELS } from '../types'
 
@@ -216,8 +217,9 @@ function PasswordCard() {
       setError('Las contraseñas nuevas no coinciden.')
       return
     }
-    if (newPassword.length < 4) {
-      setError('La contraseña debe tener al menos 4 caracteres.')
+    const policyError = passwordPolicyError(newPassword)
+    if (policyError) {
+      setError(policyError)
       return
     }
     setBusy(true)
@@ -244,7 +246,7 @@ function PasswordCard() {
         </div>
         <div>
           <h2 className="text-base font-bold text-auditart-navy">Cambiar contraseña</h2>
-          <p className="text-xs text-auditart-muted">Mínimo 4 caracteres.</p>
+          <p className="text-xs text-auditart-muted">{PASSWORD_REQUIREMENTS}</p>
         </div>
       </div>
 

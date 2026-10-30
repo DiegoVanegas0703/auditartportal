@@ -1,16 +1,19 @@
 using Auditart.Application.Abstractions;
+using Auditart.Application.Auth;
 using Auditart.Domain.Entities;
 using Auditart.Domain.Enums;
 using Auditart.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace Auditart.Infrastructure.Persistence;
 
 public static class DbSeeder
 {
-    private const string DefaultPassword = "Test";
+    /// <summary>Solo Development / local. Cumple la política (10+ letra y número).</summary>
+    private const string DevDefaultPassword = "AuditartDev1";
 
     public static async Task SeedAsync(IServiceProvider services)
     {
@@ -18,13 +21,53 @@ public static class DbSeeder
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<AppDbContext>>();
+        var env = scope.ServiceProvider.GetRequiredService<IHostEnvironment>();
 
         await db.Database.MigrateAsync();
 
         logger.LogInformation("Verificando usuarios iniciales...");
 
-        var passwordHash = hasher.Hash(DefaultPassword);
+        if (env.IsProduction())
+        {
+            await SeedProductionAdminIfEmptyAsync(db, hasher, logger);
+        }
+        else
+        {
+            await SeedDevelopmentUsersAsync(db, hasher, logger);
+        }
 
+        await SeedSlaRulesAsync(db, logger);
+        await SeedAseguradorasAsync(db, logger);
+        await SeedAiAssistantsAsync(db, logger);
+    }
+
+    private static async Task SeedProductionAdminIfEmptyAsync(
+        AppDbContext db,
+        IPasswordHasher hasher,
+        ILogger logger)
+    {
+        if (await db.Users.AnyAsync())
+        {
+            logger.LogInformation("Seed de usuarios omitido (Production: ya hay cuentas).");
+            return;
+        }
+
+        var password = PasswordPolicy.GenerateTemporary();
+        var admin = User.Create("Admin Auditart", "admin@auditart.local", UserRole.Admin);
+        admin.SetPassword(hasher.Hash(password), mustChangePassword: true);
+        db.Users.Add(admin);
+        await db.SaveChangesAsync();
+        logger.LogWarning(
+            "Production sin usuarios: creado admin@auditart.local. Contraseña temporal: {Password}. Cambiala al ingresar.",
+            password);
+    }
+
+    private static async Task SeedDevelopmentUsersAsync(
+        AppDbContext db,
+        IPasswordHasher hasher,
+        ILogger logger)
+    {
+        var passwordHash = hasher.Hash(DevDefaultPassword);
         var seedUsers = new (string Name, string Email, UserRole Role, AuditQueue? Queue)[]
         {
             ("Admin Auditart", "admin@auditart.local", UserRole.Admin, null),
@@ -72,14 +115,11 @@ public static class DbSeeder
         if (created > 0 || updated > 0)
             await db.SaveChangesAsync();
 
-        await SeedSlaRulesAsync(db, logger);
-        await SeedAseguradorasAsync(db, logger);
-        await SeedAiAssistantsAsync(db, logger);
-
         logger.LogInformation(
-            "Seed de usuarios completado ({Created} nuevos, {Updated} con contraseña).",
+            "Seed de usuarios (Development) completado ({Created} nuevos, {Updated} con contraseña). Default: {Password}",
             created,
-            updated);
+            updated,
+            DevDefaultPassword);
     }
 
     private static async Task SeedAseguradorasAsync(AppDbContext db, ILogger logger)

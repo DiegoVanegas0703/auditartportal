@@ -18,13 +18,16 @@ public class JwtTokenService : IJwtTokenService
         _configuration = configuration;
     }
 
+    public int AccessTokenMinutes =>
+        int.TryParse(_configuration["Jwt:AccessTokenMinutes"], out var m) ? m : 30;
+
     public string CreateAccessToken(User user)
     {
         var key = _configuration["Jwt:Key"]
             ?? throw new InvalidOperationException("Jwt:Key no configurado.");
         var issuer = _configuration["Jwt:Issuer"] ?? "auditart";
         var audience = _configuration["Jwt:Audience"] ?? "auditart-web";
-        var minutes = int.TryParse(_configuration["Jwt:AccessTokenMinutes"], out var m) ? m : 30;
+        var minutes = AccessTokenMinutes;
 
         var claims = new List<Claim>
         {

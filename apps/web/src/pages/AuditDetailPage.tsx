@@ -14,10 +14,8 @@ import {
   mapRequestDetail,
   mapService,
   prestadoresApi,
-  preciosApi,
   servicesApi,
   usersApi,
-  type PrecioOptionDto,
   type PrestadorOptionDto,
   type ServiceAttachmentDto,
 } from '../api/auditartApi'
@@ -43,19 +41,9 @@ import {
   type AuditRecord,
   type AuditStatus,
   type EmailRequestDetail,
-  type TipoProfesional,
 } from '../types'
 import { formatDateTime, formatCurrency } from '../utils/format'
 import { newClientId } from '../utils/id'
-
-/** Debe coincidir con AuditService.RecargoArtEspecialista en la API. */
-const RECARGO_ART_ESPECIALISTA = 0.035
-
-/** Total a cobrar ART = valor × (1,5 | 2) + 3,5% de ese producto. Ej.: 25000×1,5 + 1312,5 = 38812,5 */
-function conciliadoEspecialista(base: number, pct: 50 | 100): number {
-  const producto = base * (1 + pct / 100)
-  return Math.round(producto * (1 + RECARGO_ART_ESPECIALISTA) * 100) / 100
-}
 
 const STATUS_ORDER: AuditStatus[] = ['rojo', 'amarillo', 'azul', 'verde', 'celeste']
 
@@ -101,7 +89,7 @@ const BACK_TRANSITIONS: Record<
     {
       next: 'rojo',
       label: 'Devolver a Rojo',
-      condition: 'Si hay que volver a negociar profesional / precios',
+      condition: 'Si hay que cambiar profesional o valores',
     },
   ],
   azul: [
@@ -188,16 +176,14 @@ export function AuditDetailPage() {
   const [fetchedAudit, setFetchedAudit] = useState<AuditRecord | null>(null)
   const [auditLoading, setAuditLoading] = useState(false)
   const [preciosModalOpen, setPreciosModalOpen] = useState(false)
-  const [precioTipo, setPrecioTipo] = useState<TipoProfesional>('especialista')
-  const [precioQuery, setPrecioQuery] = useState('')
-  const [precioOptions, setPrecioOptions] = useState<PrecioOptionDto[]>([])
-  const [selectedPrecioId, setSelectedPrecioId] = useState('')
-  const [catalogBaseValor, setCatalogBaseValor] = useState<number | null>(null)
-  const [pctEspecialista, setPctEspecialista] = useState<50 | 100>(100)
   const [valorConsultaInput, setValorConsultaInput] = useState('')
   const [valorConciliadoInput, setValorConciliadoInput] = useState('')
   const [preciosBusy, setPreciosBusy] = useState(false)
   const [preciosError, setPreciosError] = useState<string | null>(null)
+  const [turnoManual, setTurnoManual] = useState(false)
+  const [turnoProfesionalManual, setTurnoProfesionalManual] = useState('')
+  const [turnoValorConsulta, setTurnoValorConsulta] = useState('')
+  const [turnoValorArt, setTurnoValorArt] = useState('')
 
   const audit = audits.find((a) => a.id === id) ?? fetchedAudit
 
@@ -244,46 +230,12 @@ export function AuditDetailPage() {
   }, [id])
 
   useEffect(() => {
-    if (!audit || audit.status !== 'rojo') return
-    setPrecioTipo(audit.tipoProfesional ?? 'especialista')
-    setSelectedPrecioId(audit.precioCatalogoId ?? '')
-    setPctEspecialista(audit.porcentajeConciliacionEspecialista === 50 ? 50 : 100)
-    setCatalogBaseValor(null)
-    setValorConsultaInput(
-      audit.valorPactado != null ? String(audit.valorPactado) : '',
-    )
+    if (!audit) return
+    setValorConsultaInput(audit.valorPactado != null ? String(audit.valorPactado) : '')
     setValorConciliadoInput(
       audit.valorConciliadoArt != null ? String(audit.valorConciliadoArt) : '',
     )
-  }, [
-    audit?.id,
-    audit?.status,
-    audit?.tipoProfesional,
-    audit?.precioCatalogoId,
-    audit?.porcentajeConciliacionEspecialista,
-    audit?.valorPactado,
-    audit?.valorConciliadoArt,
-  ])
-
-  useEffect(() => {
-    if (!preciosModalOpen || !audit || audit.status !== 'rojo') return
-    let cancelled = false
-    void preciosApi
-      .options({
-        tipo: precioTipo,
-        art: precioTipo === 'auditor' ? audit.art : undefined,
-        q: precioQuery.trim() || undefined,
-      })
-      .then((list) => {
-        if (!cancelled) setPrecioOptions(list)
-      })
-      .catch(() => {
-        if (!cancelled) setPrecioOptions([])
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [preciosModalOpen, audit?.id, audit?.status, audit?.art, precioTipo, precioQuery])
+  }, [audit?.id, audit?.valorPactado, audit?.valorConciliadoArt])
 
   useEffect(() => {
     if (!id) return
@@ -354,6 +306,10 @@ export function AuditDetailPage() {
         setSelectedPrestadorId(audit.prestadorId ?? '')
         setPrestadorQuery(audit.profesional ?? '')
         setPrestadorSoloActivos(true)
+        setTurnoManual(false)
+        setTurnoProfesionalManual(audit.profesional ?? '')
+        setTurnoValorConsulta(audit.valorPactado != null ? String(audit.valorPactado) : '')
+        setTurnoValorArt(audit.valorConciliadoArt != null ? String(audit.valorConciliadoArt) : '')
         setTurnoError(null)
         setTurnoModalOpen(true)
         void loadPrestadoresParaTurno(audit.profesional ?? '', true)
@@ -407,16 +363,40 @@ export function AuditDetailPage() {
     void loadPrestadoresParaTurno(term, prestadorSoloActivos)
   }
 
+  const parseMoney = (raw: string): number | undefined => {
+    const trimmed = raw.trim()
+    if (!trimmed) return undefined
+    const n = Number(trimmed.replace(',', '.'))
+    return Number.isNaN(n) ? NaN : n
+  }
+
   const confirmTurnoAmarillo = async () => {
     if (!turnoFechaLocal) {
       setTurnoError('Indicá fecha y hora del turno.')
       return
     }
     const selected = prestadorOptions.find((p) => p.id === selectedPrestadorId)
-    if (!selected) {
+    const profesional = turnoManual
+      ? turnoProfesionalManual.trim()
+      : (selected?.nombre ?? prestadorQuery.trim())
+    if (!turnoManual && !selected) {
       setTurnoError(
-        'Seleccioná un profesional de la lista (cartilla Doctores). Si no aparece, importalo o crealo en Doctores y desmarcá “Solo activos” si estuviera inactivo.',
+        'Seleccioná un profesional de Doctores. Si no está en la cartilla, marcá “No está en Doctores” y cargá el nombre y los valores a mano.',
       )
+      return
+    }
+    if (turnoManual && !profesional) {
+      setTurnoError('Indicá el nombre del profesional.')
+      return
+    }
+    const valorConsulta = parseMoney(turnoValorConsulta)
+    const valorArt = parseMoney(turnoValorArt)
+    if (valorConsulta != null && Number.isNaN(valorConsulta)) {
+      setTurnoError('Valor de consulta inválido.')
+      return
+    }
+    if (valorArt != null && Number.isNaN(valorArt)) {
+      setTurnoError('Valor a cobrar a la ART inválido.')
       return
     }
     setTurnoBusy(true)
@@ -425,8 +405,10 @@ export function AuditDetailPage() {
       const fechaTurnoUtc = new Date(turnoFechaLocal).toISOString()
       await updateAuditStatus(audit.id, 'amarillo', {
         fechaTurnoUtc,
-        profesional: selected?.nombre ?? prestadorQuery.trim(),
-        prestadorId: selected?.id,
+        profesional,
+        prestadorId: turnoManual ? undefined : selected?.id,
+        valorConsulta,
+        valorConciliadoArt: valorArt,
       })
       setTurnoModalOpen(false)
       showToast(`Estado actualizado a ${STATUS_LABELS.amarillo}`)
@@ -437,55 +419,38 @@ export function AuditDetailPage() {
     }
   }
 
-
-  const applyPctPreview = (pct: 50 | 100) => {
-    setPctEspecialista(pct)
-    if (catalogBaseValor != null) {
-      setValorConciliadoInput(String(conciliadoEspecialista(catalogBaseValor, pct)))
-    }
-  }
-
   const openPreciosModal = () => {
     setPreciosError(null)
+    setValorConsultaInput(audit.valorPactado != null ? String(audit.valorPactado) : '')
+    setValorConciliadoInput(
+      audit.valorConciliadoArt != null ? String(audit.valorConciliadoArt) : '',
+    )
     setPreciosModalOpen(true)
   }
 
-  const savePreciosRojo = async () => {
-    const valorConsulta = valorConsultaInput.trim()
-      ? Number(valorConsultaInput.replace(',', '.'))
-      : undefined
-    const valorConciliado = valorConciliadoInput.trim()
-      ? Number(valorConciliadoInput.replace(',', '.'))
-      : undefined
+  const saveValores = async () => {
+    const valorConsulta = parseMoney(valorConsultaInput)
+    const valorConciliado = parseMoney(valorConciliadoInput)
     if (valorConsulta != null && Number.isNaN(valorConsulta)) {
       setPreciosError('Valor de consulta inválido.')
       return
     }
     if (valorConciliado != null && Number.isNaN(valorConciliado)) {
-      setPreciosError('Precio conciliado inválido.')
-      return
-    }
-    if (valorConciliado == null && !selectedPrecioId) {
-      setPreciosError('Elegí un concepto del catálogo o cargá el precio conciliado.')
+      setPreciosError('Valor a cobrar a la ART inválido.')
       return
     }
     setPreciosBusy(true)
     setPreciosError(null)
     try {
-      const dto = await servicesApi.setPrecios(audit.id, {
-        tipoProfesional: precioTipo,
-        valorConsulta,
+      await servicesApi.updateFlags(audit.id, {
+        valorPactado: valorConsulta,
         valorConciliadoArt: valorConciliado,
-        precioCatalogoId: selectedPrecioId || undefined,
-        porcentajeConciliacionEspecialista:
-          precioTipo === 'especialista' ? pctEspecialista : undefined,
       })
-      setFetchedAudit(mapService(dto))
       await refresh()
       setPreciosModalOpen(false)
-      showToast('Precios guardados')
+      showToast('Valores actualizados')
     } catch (e) {
-      setPreciosError(e instanceof Error ? e.message : 'No se pudieron guardar los precios')
+      setPreciosError(e instanceof Error ? e.message : 'No se pudieron guardar los valores')
     } finally {
       setPreciosBusy(false)
     }
@@ -799,7 +764,7 @@ export function AuditDetailPage() {
                   {audit.valorConciliadoArt != null && (
                     <div className="rounded-2xl bg-emerald-50 px-5 py-3 text-right ring-1 ring-emerald-200">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700/70">
-                        Precio conciliado ART
+                        Valor a cobrar ART
                         {audit.tipoProfesional === 'especialista' &&
                         audit.porcentajeConciliacionEspecialista
                           ? ` (+${audit.porcentajeConciliacionEspecialista}%)`
@@ -818,15 +783,13 @@ export function AuditDetailPage() {
 
         {/* Sticky CTAs */}
         <div className="sticky top-0 z-20 flex flex-wrap items-center gap-2 border-b border-gray-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur">
-          {audit.status === 'rojo' && (
-            <button
-              type="button"
-              onClick={openPreciosModal}
-              className="rounded-xl bg-auditart-blue px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-auditart-blue/90"
-            >
-              Negociar precios
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={openPreciosModal}
+            className="rounded-xl bg-auditart-blue px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-auditart-blue/90"
+          >
+            Editar valores
+          </button>
           {audit.status !== 'celeste' && (
             <button
               type="button"
@@ -1148,10 +1111,10 @@ export function AuditDetailPage() {
             <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-lg font-bold text-auditart-navy">Negociar precios</h3>
+                  <h3 className="text-lg font-bold text-auditart-navy">Valores del caso</h3>
                   <p className="mt-1 text-sm text-auditart-muted">
-                    Elegí modalidad, concepto y confirmá valor consulta vs precio a cotizar a la ART.
-                    Para especialista: 50% más o 100% más sobre la base del catálogo.
+                    El valor de consulta sale del doctor elegido. Ambos montos se pueden
+                    editar o estimar cuando haga falta.
                   </p>
                 </div>
                 <button
@@ -1167,134 +1130,6 @@ export function AuditDetailPage() {
                   {preciosError}
                 </div>
               )}
-
-              <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPrecioTipo('auditor')
-                    setSelectedPrecioId('')
-                    setCatalogBaseValor(null)
-                  }}
-                  className={`rounded-2xl border-2 p-4 text-left transition-all ${
-                    precioTipo === 'auditor'
-                      ? 'border-auditart-blue bg-auditart-blue/8 shadow-sm'
-                      : 'border-gray-200 hover:border-auditart-blue/40'
-                  }`}
-                >
-                  <p className="font-bold text-auditart-navy">Médico auditor</p>
-                  <p className="mt-1 text-xs text-auditart-muted">
-                    Precio de catálogo ART sin recargo porcentual.
-                  </p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPrecioTipo('especialista')
-                    setSelectedPrecioId('')
-                    setCatalogBaseValor(null)
-                    setPctEspecialista(100)
-                  }}
-                  className={`rounded-2xl border-2 p-4 text-left transition-all ${
-                    precioTipo === 'especialista'
-                      ? 'border-auditart-blue bg-auditart-blue/8 shadow-sm'
-                      : 'border-gray-200 hover:border-auditart-blue/40'
-                  }`}
-                >
-                  <p className="font-bold text-auditart-navy">Especialista / estudio</p>
-                  <p className="mt-1 text-xs text-auditart-muted">
-                    Base del catálogo +50% o +100% a cotizar a la ART.
-                  </p>
-                </button>
-              </div>
-
-              {precioTipo === 'especialista' && (
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <button
-                    type="button"
-                    onClick={() => applyPctPreview(50)}
-                    className={`rounded-2xl border-2 p-4 text-left transition-all ${
-                      pctEspecialista === 50
-                        ? 'border-emerald-400 bg-emerald-50'
-                        : 'border-gray-200 hover:border-emerald-300'
-                    }`}
-                  >
-                    <p className="text-lg font-extrabold text-emerald-800">+50%</p>
-                    <p className="mt-0.5 text-xs text-auditart-muted">valor × 1,5 + 3,5%</p>
-                    {catalogBaseValor != null && (
-                      <p className="mt-2 text-sm font-semibold text-emerald-800">
-                        {formatCurrency(catalogBaseValor)} →{' '}
-                        {formatCurrency(conciliadoEspecialista(catalogBaseValor, 50))}
-                      </p>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applyPctPreview(100)}
-                    className={`rounded-2xl border-2 p-4 text-left transition-all ${
-                      pctEspecialista === 100
-                        ? 'border-emerald-400 bg-emerald-50'
-                        : 'border-gray-200 hover:border-emerald-300'
-                    }`}
-                  >
-                    <p className="text-lg font-extrabold text-emerald-800">+100%</p>
-                    <p className="mt-0.5 text-xs text-auditart-muted">valor × 2 + 3,5%</p>
-                    {catalogBaseValor != null && (
-                      <p className="mt-2 text-sm font-semibold text-emerald-800">
-                        {formatCurrency(catalogBaseValor)} →{' '}
-                        {formatCurrency(conciliadoEspecialista(catalogBaseValor, 100))}
-                      </p>
-                    )}
-                  </button>
-                </div>
-              )}
-
-              <label className="mt-5 block text-xs font-semibold text-auditart-gray">
-                Buscar concepto del catálogo
-                <input
-                  value={precioQuery}
-                  onChange={(e) => setPrecioQuery(e.target.value)}
-                  placeholder={
-                    precioTipo === 'auditor'
-                      ? `Precios de ${audit.art}…`
-                      : 'VALOR PRESTADORES…'
-                  }
-                  className="input-modern mt-1 w-full px-3 py-2 text-sm"
-                />
-              </label>
-              <div className="mt-2 max-h-44 overflow-y-auto rounded-xl border border-gray-100">
-                {precioOptions.length === 0 ? (
-                  <p className="px-3 py-4 text-xs text-auditart-muted">
-                    Sin conceptos activos. Facturación/Jefatura puede cargarlos en Precios.
-                    Podés tipear el monto conciliado a mano.
-                  </p>
-                ) : (
-                  precioOptions.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedPrecioId(p.id)
-                        setCatalogBaseValor(p.valor)
-                        const conciliado =
-                          precioTipo === 'especialista'
-                            ? conciliadoEspecialista(p.valor, pctEspecialista)
-                            : p.valor
-                        setValorConciliadoInput(String(conciliado))
-                      }}
-                      className={`flex w-full items-center justify-between px-3 py-2.5 text-left text-sm hover:bg-auditart-light ${
-                        selectedPrecioId === p.id ? 'bg-auditart-blue/10' : ''
-                      }`}
-                    >
-                      <span className="font-medium text-auditart-navy">{p.concepto}</span>
-                      <span className="font-semibold text-auditart-blue">
-                        {formatCurrency(p.valor)}
-                      </span>
-                    </button>
-                  ))
-                )}
-              </div>
-
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 <label className="text-xs font-semibold text-auditart-gray">
                   Valor consulta (prestador)
@@ -1306,33 +1141,15 @@ export function AuditDetailPage() {
                   />
                 </label>
                 <label className="text-xs font-semibold text-auditart-gray">
-                  Precio conciliado (ART)
+                  Valor a cobrar a la ART
                   <input
                     value={valorConciliadoInput}
                     onChange={(e) => setValorConciliadoInput(e.target.value)}
-                    placeholder="Desde catálogo o manual"
+                    placeholder="Estimado o pactado"
                     className="input-modern mt-1 w-full px-3 py-2 text-sm"
                   />
                 </label>
               </div>
-
-              {precioTipo === 'especialista' && catalogBaseValor != null && (
-                <div className="mt-4 rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-900 ring-1 ring-emerald-200">
-                  <span className="font-semibold">Total a cobrar ART: </span>
-                  {formatCurrency(catalogBaseValor)} × {pctEspecialista === 50 ? '1,5' : '2'} ={' '}
-                  {formatCurrency(catalogBaseValor * (1 + pctEspecialista / 100))} + 3,5% (
-                  {formatCurrency(
-                    Math.round(
-                      catalogBaseValor * (1 + pctEspecialista / 100) * RECARGO_ART_ESPECIALISTA * 100,
-                    ) / 100,
-                  )}
-                  ) ={' '}
-                  <span className="font-extrabold">
-                    {formatCurrency(conciliadoEspecialista(catalogBaseValor, pctEspecialista))}
-                  </span>
-                </div>
-              )}
-
               <div className="mt-5 flex justify-end gap-2">
                 <button
                   type="button"
@@ -1345,11 +1162,11 @@ export function AuditDetailPage() {
                 <button
                   type="button"
                   disabled={preciosBusy}
-                  onClick={() => void savePreciosRojo()}
+                  onClick={() => void saveValores()}
                   className="btn-primary inline-flex items-center gap-2 text-sm disabled:opacity-50"
                 >
-                  {preciosBusy && <Loader2 size={14} className="animate-spin" />}
-                  Guardar precios
+                  {preciosBusy && <Loader2 size={14} className="inline animate-spin" />}
+                  Guardar valores
                 </button>
               </div>
             </div>
@@ -1361,7 +1178,8 @@ export function AuditDetailPage() {
             <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
               <h3 className="text-lg font-bold text-auditart-navy">Coordinar turno</h3>
               <p className="mt-1 text-sm text-auditart-muted">
-                Elegí profesional de la cartilla y fecha del turno (estado Amarillo).
+                Buscá el doctor en la cartilla. El valor de consulta se completa solo y
+                se puede editar, igual que el valor a cobrar a la ART.
               </p>
               {turnoError && (
                 <div className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -1421,6 +1239,11 @@ export function AuditDetailPage() {
                       onClick={() => {
                         setSelectedPrestadorId(p.id)
                         setPrestadorQuery(p.nombre)
+                        setTurnoManual(false)
+                        setTurnoProfesionalManual(p.nombre)
+                        setTurnoValorConsulta(
+                          p.valorConsulta != null ? String(p.valorConsulta) : '',
+                        )
                       }}
                       className={`flex w-full flex-col border-b border-gray-50 px-3 py-2 text-left text-sm hover:bg-auditart-light ${
                         selectedPrestadorId === p.id ? 'bg-auditart-blue/8' : ''
@@ -1446,12 +1269,47 @@ export function AuditDetailPage() {
                   ))
                 )}
               </div>
-              {selectedPrestadorId && (
-                <p className="mt-2 text-xs text-auditart-muted">
-                  Al confirmar se cargan en el caso el valor de consulta y si requiere pago
-                  anticipado.
-                </p>
+              <label className="mt-3 flex items-center gap-2 text-xs text-auditart-navy">
+                <input
+                  type="checkbox"
+                  checked={turnoManual}
+                  onChange={(e) => {
+                    setTurnoManual(e.target.checked)
+                    if (e.target.checked) setSelectedPrestadorId('')
+                  }}
+                />
+                No está en Doctores (especialista / valor a mano)
+              </label>
+              {turnoManual && (
+                <label className="mt-2 block text-xs font-semibold text-auditart-gray">
+                  Nombre del profesional
+                  <input
+                    value={turnoProfesionalManual}
+                    onChange={(e) => setTurnoProfesionalManual(e.target.value)}
+                    className="input-modern mt-1 w-full px-3 py-2 text-sm"
+                  />
+                </label>
               )}
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                <label className="text-xs font-semibold text-auditart-gray">
+                  Valor consulta
+                  <input
+                    value={turnoValorConsulta}
+                    onChange={(e) => setTurnoValorConsulta(e.target.value)}
+                    placeholder="Del doctor, editable"
+                    className="input-modern mt-1 w-full px-3 py-2 text-sm"
+                  />
+                </label>
+                <label className="text-xs font-semibold text-auditart-gray">
+                  Valor a cobrar a la ART
+                  <input
+                    value={turnoValorArt}
+                    onChange={(e) => setTurnoValorArt(e.target.value)}
+                    placeholder="Estimado o pactado"
+                    className="input-modern mt-1 w-full px-3 py-2 text-sm"
+                  />
+                </label>
+              </div>
               <div className="mt-5 flex justify-end gap-2">
                 <button
                   type="button"

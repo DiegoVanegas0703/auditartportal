@@ -38,4 +38,32 @@ public static class PermissionService
             UserRole.Cronicos => channel == EmailChannel.Cronicos,
             _ => channel == EmailChannel.General
         };
+
+    /// <summary>
+    /// Mismos criterios que el listado del tablero: no se puede abrir un caso de otra cola/operador.
+    /// </summary>
+    public static bool CanViewService(
+        UserRole role,
+        Guid userId,
+        AuditQueue queue,
+        AuditStatus status,
+        Guid? operadorId)
+    {
+        if (role is UserRole.Admin or UserRole.Jefatura)
+            return true;
+
+        if (role == UserRole.Facturacion)
+            return status is AuditStatus.Verde or AuditStatus.Celeste;
+
+        if (role == UserRole.Telemedicina)
+            return queue == AuditQueue.Telemedicina;
+
+        if (role == UserRole.Cronicos)
+            return queue == AuditQueue.Cronicos;
+
+        if (role == UserRole.Operador)
+            return queue == AuditQueue.General && operadorId == userId;
+
+        return false;
+    }
 }

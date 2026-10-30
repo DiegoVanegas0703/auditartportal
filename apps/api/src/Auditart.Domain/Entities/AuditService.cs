@@ -360,7 +360,8 @@ public class AuditService : Entity
         string? profesional,
         Guid? prestadorId = null,
         decimal? valorConsulta = null,
-        bool? requierePagoAnticipado = null)
+        bool? requierePagoAnticipado = null,
+        decimal? valorConciliadoArt = null)
     {
         FechaTurnoUtc = fechaTurnoUtc;
         if (!string.IsNullOrWhiteSpace(profesional))
@@ -371,6 +372,8 @@ public class AuditService : Entity
             ValorPactado = valorConsulta;
         if (requierePagoAnticipado.HasValue)
             RequierePagoAnticipado = requierePagoAnticipado.Value;
+        if (valorConciliadoArt.HasValue)
+            ValorConciliadoArt = valorConciliadoArt;
         Touch();
     }
 
@@ -435,9 +438,6 @@ public class AuditService : Entity
         Guid? precioCatalogoId = null,
         int? porcentajeConciliacionEspecialista = null)
     {
-        if (Status != AuditStatus.Rojo)
-            throw new DomainException("Los precios conciliados solo se definen en estado Rojo.");
-
         if (valorConsulta is < 0)
             throw new DomainException("El valor de consulta no puede ser negativo.");
         if (valorConciliadoArt is < 0)

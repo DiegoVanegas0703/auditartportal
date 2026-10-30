@@ -134,6 +134,7 @@ export interface ApiUserListItem {
   defaultQueue?: AuditQueue | null
   isActive?: boolean
   mustChangePassword?: boolean
+  temporaryPassword?: string | null
 }
 
 export interface DenunciaParsedDto {
@@ -728,17 +729,32 @@ export interface WhatsAppTurnoPreview {
   medico?: string | null
   pacienteNombre: string
   motivo: string
+  kind: 'turno' | 'telemedicina' | string
+  templateBody: string
+}
+
+export interface WhatsAppTemplateDto {
+  key: 'turno' | 'telemedicina' | string
+  title: string
+  body: string
+  defaultBody: string
 }
 
 export const whatsappApi = {
   status: () => apiFetch<{ enabled: boolean }>('/api/whatsapp/status'),
   previewTurno: (serviceId: string) =>
     apiFetch<WhatsAppTurnoPreview>(`/api/whatsapp/services/${serviceId}/turno-preview`),
-  notifyTurno: (serviceId: string) =>
+  notifyTurno: (serviceId: string, messageBody?: string) =>
     apiFetch<{ phone: string; logId: string }>(
       `/api/whatsapp/services/${serviceId}/notify-turno`,
-      { method: 'POST' },
+      { method: 'POST', body: JSON.stringify({ messageBody: messageBody ?? null }) },
     ),
+  listTemplates: () => apiFetch<WhatsAppTemplateDto[]>('/api/whatsapp/templates'),
+  saveTemplate: (key: string, body: string) =>
+    apiFetch<WhatsAppTemplateDto>(`/api/whatsapp/templates/${encodeURIComponent(key)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ body }),
+    }),
 }
 
 export interface FormularioFieldDto {
@@ -875,6 +891,8 @@ export const servicesApi = {
       reason?: string
       autorizacionCodigo?: string
       autorizacionDocumentoAttachmentId?: string
+      valorConsulta?: number
+      valorConciliadoArt?: number
     },
   ) =>
     apiFetch(`/api/services/${id}/transition`, {
